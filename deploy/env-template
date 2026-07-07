@@ -1,0 +1,61 @@
+# Copy to deploy/.env and fill in. NEVER commit the real .env.
+
+# --- Required ---
+GOOGLE_PROJECT=your-gcp-project-id
+GOOGLE_REGION=us-central1
+
+# GitHub repo (owner/repo) for keyless CI auth via Workload Identity Federation.
+# Set this to provision the WIF pool/provider + bind github-cicd-sa to the repo. Leave blank to skip.
+GITHUB_REPO=your-org/your-repo
+
+# --- Networking (defaults are fine for most projects) ---
+SUBNET_IP=10.10.0.0/24
+VPC_CONNECTOR_CIDR=10.8.0.0/28
+VPC_CONNECTOR_MIN_THROUGHPUT=200
+VPC_CONNECTOR_MAX_THROUGHPUT=300
+
+# --- Database ---
+DB_NAME=collateral_ai_db
+DB_USER=collateral_ai_user
+DB_PASSWORD_LENGTH=32
+SQL_DB_VERSION=POSTGRES_15
+# --- SIZING / COST (review before `pulumi up`) ---
+# Cloud SQL tier: db-custom-1-3840 = 1 vCPU / 3.75GB (~$50/mo ZONAL, ~2x REGIONAL). Cheapest usable
+# tiers: db-custom-1-3840, or db-g1-small for dev. Bigger = linearly more cost.
+SQL_INSTANCE_TIER=db-custom-1-3840
+# ZONAL (single zone, cheaper) vs REGIONAL (HA, ~2x). Use REGIONAL only for production.
+SQL_AVAILABILITY_TYPE=ZONAL
+# Set to false ONLY for throwaway stacks so pulumi destroy can remove the DB
+SQL_DELETION_PROTECTION=true
+
+# --- Cloud Run sizing (used by CI deploy; review to control cost) ---
+# min-instances 0 = scale to zero (cheapest, cold starts). Set backend to 1 to keep it warm ($).
+BACKEND_CPU=1
+BACKEND_MEMORY=512Mi
+BACKEND_MIN_INSTANCES=0
+BACKEND_MAX_INSTANCES=4
+FRONTEND_CPU=1
+FRONTEND_MEMORY=512Mi
+FRONTEND_MIN_INSTANCES=0
+FRONTEND_MAX_INSTANCES=4
+
+# --- Storage CORS ---
+BUCKET_CORS_ALLOWED_ORIGINS=http://localhost:3000,https://collateralai.example.com
+
+# --- Frontend hosting + custom domain (React SPA only) ---
+# FRONTEND_HOSTING=gcs provisions GCS + Cloud CDN + external HTTPS LB + managed SSL for the frontend.
+# Leave as cloudrun (default) for Next.js/SSR or to skip the custom domain. Backend always stays on
+# its Cloud Run *.run.app URL.
+FRONTEND_HOSTING=cloudrun
+DOMAIN=collateralai.example.com
+FRONTEND_SUBDOMAIN=app                    # → app.collateralai.example.com
+# DNS lives in a SEPARATE shared-infra project (Pulumi writes the A record there via a 2nd provider):
+DNS_PROJECT=your-shared-infra-project     # e.g. shared-infra-project-501613
+DNS_ZONE=your-managed-zone-name           # the Cloud DNS zone for collateralai.example.com in DNS_PROJECT
+
+# --- Secret values (Pulumi seeds Secret Manager; rotate via gcloud afterwards) ---
+# Leave as REPLACE_ME to create a placeholder, then:
+#   echo -n 'real-value' | gcloud secrets versions add <secret-id> --data-file=-
+RESEND_API_KEY_VALUE=REPLACE_ME
+STRIPE_SECRET_KEY_VALUE=REPLACE_ME
+STRIPE_WEBHOOK_SECRET_VALUE=REPLACE_ME

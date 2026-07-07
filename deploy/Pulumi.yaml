@@ -1,0 +1,10 @@
+name: collateral_ai
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: GCP infrastructure for Collateral AI (Cloud Run + Cloud SQL + supporting resources)
+# Self-managed state in a GCS bucket (provisioned by bootstrap-state.sh). No Pulumi Cloud needed.
+# Secrets are encrypted per-stack with GCP KMS (set on `pulumi stack init --secrets-provider=...`).
+backend:
+  url: gs://collateralai-501708-pulumi-state

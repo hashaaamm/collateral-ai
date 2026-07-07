@@ -1,0 +1,33 @@
+# Secrets / env
+.envs/
+deploy/.env
+*.env.local
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Node / Vite / pnpm
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+.vite/
+*.tsbuildinfo
+# NOTE: frontend/lib/api/schema.d.ts is generated but COMMITTED on purpose,
+# so CI can typecheck/build without a running backend. Regenerate with `pnpm gen:api`.
+
+# Pulumi
+deploy/venv/
+
+# OS / editor
+.DS_Store
+*.log

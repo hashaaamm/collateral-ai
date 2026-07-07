@@ -1,0 +1,11 @@
+#!/bin/bash
+# Cloud Run container entrypoint (plugin delta). Serves config.wsgi via gunicorn on $PORT (8080).
+# Static files + the whitenoise manifest are baked into the image at BUILD time
+# (Dockerfile.cloudrun), so collectstatic does NOT run here (the non-root user can't write
+# STATIC_ROOT at runtime anyway). Run DB migrations via the jobs.yml workflow, not here.
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+exec gunicorn config.wsgi --bind "0.0.0.0:${PORT:-8080}" --chdir=/app

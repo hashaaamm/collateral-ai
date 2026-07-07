@@ -1,0 +1,120 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Which service to deploy"
+        type: choice
+        options: [both, backend, frontend]
+        default: both
+  push:
+    branches: [main]
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: "us-central1"
+  AR_REPO: "us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/collateral-ai-repo"
+  RUN_SA_EMAIL: cloud-run-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity Federation
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend: ['backend/**']
+            frontend: ['frontend/**']
+
+  deploy-backend:
+    needs: changes
+    if: ${{ github.event.inputs.service == 'backend' || github.event.inputs.service == 'both' || needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: github-cicd-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+      - name: Build & push backend
+        run: |
+          IMAGE=$AR_REPO/backend
+          # Django backend uses our Cloud Run image (Dockerfile.cloudrun, gunicorn :8080), NOT
+          # cookiecutter's Traefik production Dockerfile. (FastAPI backend: backend/Dockerfile.)
+          docker build --platform linux/amd64 -f backend/Dockerfile.cloudrun \
+            -t $IMAGE:${{ github.sha }} -t $IMAGE:latest backend
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+      - name: Deploy backend to Cloud Run
+        # Base secrets only (always provisioned). Each ENABLED feature appends its own secret here —
+        # Email(Resend) adds RESEND_API_KEY=resend-api-key:latest; Payments(Stripe) adds
+        # STRIPE_SECRET_KEY=stripe-secret-key:latest,DJSTRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest.
+        # See features/<feature>/README. Referencing a secret that wasn't provisioned FAILS the deploy.
+        run: |
+          gcloud run deploy collateral-ai-backend \
+            --image $AR_REPO/backend:${{ github.sha }} \
+            --region $REGION \
+            --service-account $RUN_SA_EMAIL \
+            --vpc-connector collateral-ai-connector \
+            --add-cloudsql-instances ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
+            --set-secrets DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest \
+            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@CORS_ALLOWED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@CSRF_TRUSTED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}" \
+            --cpu 1 --memory 512Mi --concurrency 80 --min-instances 0 --max-instances 4 \
+            --timeout 300 --allow-unauthenticated
+            # Cost note: min-instances 0 scales to zero (cold starts). Bump cpu/memory/min-instances
+            # only after confirming cost. See deploy/env-template SIZING section.
+
+  # React SPA hosted on GCS + Cloud CDN (FRONTEND_HOSTING=gcs). Static Vite build → rsync to the
+  # bucket → invalidate the CDN. (No Cloud Run frontend service for this stack.)
+  deploy-frontend-gcs:
+    needs: changes
+    if: ${{ github.event.inputs.service == 'frontend' || github.event.inputs.service == 'both' || needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: github-cicd-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Build (Vite)
+        env:
+          VITE_API_URL: ${{ secrets.FRONTEND_API_URL }}    # backend Cloud Run URL
+          VITE_SITE_URL: ${{ secrets.FRONTEND_SITE_URL }}
+        run: pnpm build
+      - name: Sync to GCS bucket + invalidate CDN
+        run: |
+          gcloud storage rsync ./dist gs://${{ secrets.FRONTEND_BUCKET }} \
+            --recursive --delete-unmatched-destination-objects
+          # Non-fatal: first deploy has nothing cached, and the sync above is the real deploy.
+          gcloud compute url-maps invalidate-cdn-cache collateral-ai-frontend-urlmap \
+            --path '/*' --global --project ${{ secrets.GCP_PROJECT_ID }} --async \
+            || echo "CDN invalidate skipped"

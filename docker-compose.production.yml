@@ -1,0 +1,40 @@
+# Production-shaped monorepo compose for Collateral AI (Django). Exercises the Cloud Run image
+# locally. Real prod runs on Cloud Run (built + deployed by CD); this is for local prod testing.
+
+volumes:
+  postgres_data: {}
+
+services:
+  django:
+    build:
+      context: ./backend
+      dockerfile: ./Dockerfile.cloudrun     # our Cloud Run image (gunicorn :8080), not cookiecutter's Traefik one
+    image: collateral_ai_production_django
+    depends_on:
+      - postgres
+    env_file:
+      - ./backend/.envs/.production/.django
+      - ./backend/.envs/.production/.postgres
+    ports:
+      - "8080:8080"
+
+  postgres:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./backend/.envs/.production/.postgres
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ./Dockerfile
+      target: runner
+      args:
+        NEXT_PUBLIC_API_URL: ${FRONTEND_API_URL:-http://localhost:8080}
+        NEXT_PUBLIC_SITE_URL: ${FRONTEND_SITE_URL:-http://localhost:3000}
+    image: collateral_ai_production_frontend
+    depends_on:
+      - django
+    ports:
+      - "3000:8080"

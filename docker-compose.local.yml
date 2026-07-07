@@ -1,0 +1,54 @@
+# Local monorepo stack for Collateral AI (Django backend). Copied to the project ROOT so a single
+# `just up` runs backend (cookiecutter's local Django image) + postgres + frontend together.
+# cookiecutter generates its own backend/docker-compose.local.yml for backend-only work; this root
+# file drives the whole monorepo and references cookiecutter's compose/ + .envs/.
+
+volumes:
+  postgres_data: {}
+  frontend_node_modules: {}
+
+services:
+  django:
+    build:
+      context: ./backend
+      dockerfile: ./compose/local/django/Dockerfile
+    image: collateral_ai_local_django
+    container_name: collateral_ai_local_django
+    depends_on:
+      - postgres
+    volumes:
+      # Anonymous volume preserves the image-built uv venv at /app/.venv so the ./backend
+      # bind-mount below doesn't shadow it (matches cookiecutter's own local compose).
+      - /app/.venv
+      - ./backend:/app:z
+    env_file:
+      - ./backend/.envs/.local/.django
+      - ./backend/.envs/.local/.postgres
+    ports:
+      - "8000:8000"
+    command: /start        # cookiecutter's local start: migrate + runserver_plus :8000
+
+  postgres:
+    image: postgres:16
+    container_name: collateral_ai_local_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./backend/.envs/.local/.postgres
+
+  # Frontend from a node image (works for Next.js and React/Vite — both have a `pnpm dev` script).
+  frontend:
+    image: node:24-slim
+    container_name: collateral_ai_local_frontend
+    working_dir: /app
+    depends_on:
+      - django
+    volumes:
+      - ./frontend:/app:z
+      - frontend_node_modules:/app/node_modules
+    env_file:
+      - ./.envs/.local/.frontend
+    ports:
+      # Host 3001 → container 3000 (host 3000 is occupied by another dev server on this machine).
+      - "3001:3000"
+    command: sh -c "corepack enable && pnpm install && pnpm dev"

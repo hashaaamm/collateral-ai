@@ -1,0 +1,78 @@
+# Cloud Run production image (plugin delta).
+#
+# Replaces cookiecutter-django's compose/production/django/Dockerfile for
+# DEPLOYS. Cookiecutter's production image targets a Traefik + gunicorn:5000
+# stack; Cloud Run runs a single container that must listen on $PORT (default
+# 8080). Dependencies are managed by uv/pyproject.toml (there is no
+# requirements/*.txt), so this builds the venv with `uv sync`.
+#
+# Build context = the generated project root (where pyproject.toml + uv.lock live).
+#   docker build -f deltas/Dockerfile.cloudrun -t <image> .
+
+# ---- build stage: resolve deps into /app/.venv via uv ----
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS build
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0
+
+WORKDIR /app
+
+# Build tooling + psycopg build deps.
+RUN apt-get update && apt-get install --no-install-recommends -y \
+      build-essential \
+      libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install locked deps first (cached), without the project or dev group.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+# Copy source and install the project itself into the venv.
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# ---- run stage: slim runtime, non-root ----
+FROM python:3.13-slim-bookworm AS run
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH" \
+    PORT=8080
+
+WORKDIR /app
+
+# Runtime libs for psycopg.
+RUN apt-get update && apt-get install --no-install-recommends -y \
+      libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && addgroup --system django \
+    && adduser --system --ingroup django --home /home/django django
+
+# Bring over the built venv + application source (owned by the non-root user).
+COPY --from=build --chown=django:django /app /app
+
+# Bake static files + the whitenoise manifest into the image (run as root so STATIC_ROOT is
+# writable). Fatal: a broken static reference fails the build here instead of 500ing at runtime.
+# Uses dummy env — collectstatic touches neither the DB nor GCS media. (The non-root runtime user
+# can't write STATIC_ROOT, which is why this is done at build, not in /start.)
+RUN DATABASE_URL="sqlite:////tmp/build.sqlite3" \
+    DJANGO_SETTINGS_MODULE="config.settings.production" \
+    DJANGO_SECRET_KEY="build-only-not-used-at-runtime" \
+    DJANGO_ALLOWED_HOSTS="localhost" \
+    DJANGO_ADMIN_URL="admin/" \
+    DJANGO_GCP_STORAGE_BUCKET_NAME="build-dummy" \
+    python manage.py collectstatic --noinput \
+    && chown -R django:django /app/staticfiles
+
+COPY --chown=django:django ./deltas/start /start
+RUN sed -i 's/\r$//g' /start && chmod +x /start
+
+USER django
+
+EXPOSE 8080
+
+CMD ["/start"]

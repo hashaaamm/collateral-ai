@@ -1,0 +1,4 @@
+pulumi>=3.165,<4.0.0
+pulumi-gcp>=8.27,<9.0.0
+pulumi-random>=4.16,<5.0.0
+python-dotenv>=1.0

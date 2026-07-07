@@ -1,0 +1,110 @@
+name: Run Job (migrations / management commands)
+
+# Runs a Django management command (default: migrate) as a one-off Cloud Run Job against the
+# production database. Manual trigger only — migrations are intentionally NOT auto-run on deploy.
+# Examples for the job_command input:
+#   migrate
+#   createsuperuser,--noinput,--email=admin@collateralai.example.com
+#   collectstatic,--noinput
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_command:
+        description: "Comma-separated manage.py command (commas separate args)"
+        required: true
+        default: "migrate"
+      superuser_email:
+        description: "For createsuperuser --noinput: admin email (optional)"
+        required: false
+        default: ""
+      superuser_password:
+        description: "For createsuperuser --noinput: admin password (optional; use a strong value)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity Federation
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: "us-central1"
+  AR_REPO: "us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/collateral-ai-repo"
+  SERVICE_NAME: collateral-ai-backend
+  RUN_SA_EMAIL: cloud-run-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+  VPC_CONNECTOR_NAME: collateral-ai-connector
+  JOB_COMMAND: ${{ github.event.inputs.job_command }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-jobs
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: github-cicd-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+      - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - uses: docker/setup-buildx-action@v3
+      - name: Build & push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/compose/production/django/Dockerfile
+          push: true
+          tags: ${{ env.AR_REPO }}/backend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.AR_REPO }}/backend:buildcache
+          cache-to: type=registry,ref=${{ env.AR_REPO }}/backend:buildcache,mode=max
+          provenance: false
+
+  run-job:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: github-cicd-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Create & execute Cloud Run Job
+        run: |
+          JOB_NAME="${SERVICE_NAME}-job-$(head -c 6 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c 6)"
+          ARGS="manage.py,${JOB_COMMAND}"
+
+          # Flags file handles special characters / nested env vars cleanly.
+          cat > job-flags.yaml << EOF
+          --service-account: "${RUN_SA_EMAIL}"
+          --vpc-connector: "${VPC_CONNECTOR_NAME}"
+          --set-cloudsql-instances: "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}"
+          # Add STRIPE_*/RESEND_API_KEY here only when those features are enabled.
+          --set-secrets: "DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest"
+          --set-env-vars:
+            DJANGO_SETTINGS_MODULE: "config.settings.production"
+            DJANGO_ALLOWED_HOSTS: "${{ secrets.DJANGO_ALLOWED_HOSTS }}"
+            DJANGO_ADMIN_URL: "${{ secrets.DJANGO_ADMIN_URL }}"
+            DJANGO_GCP_STORAGE_BUCKET_NAME: "${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}"
+            # Only used by `createsuperuser --noinput` (harmless/empty for other commands):
+            DJANGO_SUPERUSER_EMAIL: "${{ github.event.inputs.superuser_email }}"
+            DJANGO_SUPERUSER_PASSWORD: "${{ github.event.inputs.superuser_password }}"
+          EOF
+
+          gcloud run jobs create "$JOB_NAME" \
+            --quiet \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --image "${AR_REPO}/backend:${{ github.sha }}" \
+            --tasks 1 --cpu 2 --memory 2Gi \
+            --max-retries 1 \
+            --command "python" \
+            --args="$ARGS" \
+            --flags-file=job-flags.yaml
+
+          gcloud run jobs execute "$JOB_NAME" \
+            --region "$REGION" --project "$PROJECT_ID" --wait
