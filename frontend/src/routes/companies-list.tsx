@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Buildings, CaretRight, Plus } from "@phosphor-icons/react";
+import { Buildings, CaretRight, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 
 import { CompanyLogo } from "@/components/company-logo";
 import { useCompanies } from "@/lib/api/companies";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 export function CompaniesListPage() {
-  const { data: companies, isLoading, isError } = useCompanies();
+  const [search, setSearch] = useState("");
+  const debounced = useDebouncedValue(search, 300);
+  const { data: companies, isLoading, isError } = useCompanies(debounced);
 
   return (
     <div className="mx-auto max-w-[1080px] px-10 pb-[60px] pt-8">
@@ -25,6 +29,17 @@ export function CompaniesListPage() {
         </Link>
       </div>
 
+      <div className="mb-4 flex items-center gap-[9px] rounded-[10px] border border-field bg-surface px-3">
+        <MagnifyingGlass size={16} className="text-faint" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search companies…"
+          aria-label="Search companies"
+          className="w-full bg-transparent py-[10px] text-[13.5px] text-ink outline-none placeholder:text-faint"
+        />
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-hairline bg-surface">
         <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 border-b border-hairline bg-subtle px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-faint">
           <span>Company</span>
@@ -42,7 +57,9 @@ export function CompaniesListPage() {
         {companies?.length === 0 && (
           <div className="flex flex-col items-center gap-2 px-5 py-12 text-center">
             <Buildings size={28} className="text-faint" />
-            <p className="text-sm text-mute">No companies yet.</p>
+            <p className="text-sm text-mute">
+              {debounced.trim() ? `No companies match "${debounced.trim()}".` : "No companies yet."}
+            </p>
           </div>
         )}
         {companies?.map((c) => (

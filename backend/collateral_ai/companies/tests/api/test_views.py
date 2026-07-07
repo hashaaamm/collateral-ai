@@ -110,3 +110,72 @@ def test_logo_upload_url_returns_signed_put(auth_client):
         "upload_url": "https://signed-put",
         "object_path": "media/companies/logos/x/a.png",
     }
+
+
+def test_search_filters_by_name(auth_client):
+    CompanyFactory(name="Acme AI")
+    CompanyFactory(name="Globex")
+    resp = auth_client.get("/api/companies/?search=acm")
+    assert resp.status_code == HTTPStatus.OK
+    names = [c["name"] for c in resp.json()]
+    assert names == ["Acme AI"]
+
+
+def test_search_empty_returns_all(auth_client):
+    CompanyFactory(name="Acme AI")
+    CompanyFactory(name="Globex")
+    resp = auth_client.get("/api/companies/")
+    assert len(resp.json()) == 2
+
+
+def test_search_no_match_returns_empty(auth_client):
+    CompanyFactory(name="Acme AI")
+    resp = auth_client.get("/api/companies/?search=zzz")
+    assert resp.json() == []
+
+
+def test_patch_updates_name(auth_client):
+    company = CompanyFactory(name="Old")
+    resp = auth_client.patch(
+        f"/api/companies/{company.pk}/", {"name": "New"}, format="json",
+    )
+    assert resp.status_code == HTTPStatus.OK
+    company.refresh_from_db()
+    assert company.name == "New"
+
+
+def test_patch_without_logo_keeps_existing(auth_client):
+    company = CompanyFactory(name="Keep", logo="media/companies/logos/x/a.png")
+    auth_client.patch(f"/api/companies/{company.pk}/", {"name": "Keep2"}, format="json")
+    company.refresh_from_db()
+    assert company.logo == "media/companies/logos/x/a.png"
+
+
+def test_delete_removes_company_and_cleans_logo(auth_client):
+    company = CompanyFactory(logo="media/companies/logos/x/a.png")
+    with mock.patch(
+        "collateral_ai.companies.api.views.gcs.is_configured", return_value=True,
+    ), mock.patch(
+        "collateral_ai.companies.api.views.gcs.delete_object",
+    ) as delete_object:
+        resp = auth_client.delete(f"/api/companies/{company.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not Company.objects.filter(pk=company.pk).exists()
+    delete_object.assert_called_once_with("media/companies/logos/x/a.png")
+
+
+def test_delete_without_logo_skips_cleanup(auth_client):
+    company = CompanyFactory(logo="")
+    with mock.patch(
+        "collateral_ai.companies.api.views.gcs.delete_object",
+    ) as delete_object:
+        resp = auth_client.delete(f"/api/companies/{company.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not Company.objects.filter(pk=company.pk).exists()
+    delete_object.assert_not_called()
+
+
+def test_patch_and_delete_require_auth():
+    company = CompanyFactory()
+    assert APIClient().patch(f"/api/companies/{company.pk}/", {}, format="json").status_code == HTTPStatus.FORBIDDEN
+    assert APIClient().delete(f"/api/companies/{company.pk}/").status_code == HTTPStatus.FORBIDDEN

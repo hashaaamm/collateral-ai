@@ -86,3 +86,11 @@ def signed_upload_url(object_path: str, content_type: str) -> str:
 
 def signed_get_url(object_path: str) -> str:
     return _signed_url(object_path, method="GET", expiration=GET_EXPIRY)
+
+
+def delete_object(object_path: str) -> None:
+    """Best-effort delete of a stored object; never raises."""
+    try:
+        _bucket().blob(object_path).delete()
+    except Exception:  # noqa: BLE001 - deletion is best-effort
+        pass

@@ -16,6 +16,7 @@ import { DashboardPage } from "@/routes/dashboard";
 import { CompaniesListPage } from "@/routes/companies-list";
 import { CompanyDetailPage } from "@/routes/company-detail";
 import { CreateCompanyPage } from "@/routes/create-company";
+import { EditCompanyPage } from "@/routes/edit-company";
 import { CreatePage } from "@/routes/create";
 import { MaterialsPage } from "@/routes/materials";
 import { TemplatesPage } from "@/routes/templates";
@@ -100,6 +101,11 @@ const createCompanyRoute = createRoute({
   path: "/companies/new",
   component: CreateCompanyPage,
 });
+const companyEditRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/companies/$companyId/edit",
+  component: EditCompanyPage,
+});
 const createMaterialRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/create",
@@ -124,6 +130,7 @@ const routeTree = rootRoute.addChildren([
     companiesRoute,
     createCompanyRoute,
     companyDetailRoute,
+    companyEditRoute,
     createMaterialRoute,
     materialsRoute,
     templatesRoute,
