@@ -2,26 +2,30 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  redirect,
   Outlet,
   Link,
 } from "@tanstack/react-router";
+
+import { isAuthenticated } from "@/lib/auth";
 import { HomePage } from "@/routes/home";
 import { AboutPage } from "@/routes/about";
-import { DashboardPage } from "@/routes/dashboard";
 import { LoginPage } from "@/routes/login";
+import { AppShell } from "@/components/app-shell";
+import { DashboardPage } from "@/routes/dashboard";
 import { CompaniesPage } from "@/routes/companies";
 import { CreatePage } from "@/routes/create";
 import { MaterialsPage } from "@/routes/materials";
 import { TemplatesPage } from "@/routes/templates";
 
-/**
- * TanStack Router route tree. The root route renders the shared shell (nav + a
- * single <Outlet/> for the active page); index ("/") and "/about" hang off it.
- * Add routes by declaring another createRoute({ getParentRoute, path, component })
- * and appending it to addChildren below.
- */
-const rootRoute = createRootRoute({
-  component: function RootLayout() {
+/** Bare root — each group provides its own chrome (or none). */
+const rootRoute = createRootRoute({ component: () => <Outlet /> });
+
+/** Existing marketing shell (top nav) — unchanged public pages. */
+const marketingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "marketing",
+  component: function MarketingLayout() {
     return (
       <div className="min-h-dvh bg-background text-foreground">
         <header className="border-b">
@@ -43,62 +47,73 @@ const rootRoute = createRootRoute({
 });
 
 const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => marketingRoute,
   path: "/",
   component: HomePage,
 });
 
 const aboutRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => marketingRoute,
   path: "/about",
   component: AboutPage,
 });
 
-const dashboardRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/dashboard",
-  component: DashboardPage,
-});
-
+/** Standalone login. Logged-in users skip straight to the dashboard. */
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
+  beforeLoad: () => {
+    if (isAuthenticated()) throw redirect({ to: "/dashboard" });
+  },
   component: LoginPage,
 });
 
-const companiesRoute = createRoute({
+/** Guarded app shell (sidebar). Anonymous users are sent to login. */
+const appRoute = createRoute({
   getParentRoute: () => rootRoute,
+  id: "app",
+  beforeLoad: () => {
+    if (!isAuthenticated()) throw redirect({ to: "/login" });
+  },
+  component: AppShell,
+});
+
+const dashboardRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/dashboard",
+  component: DashboardPage,
+});
+const companiesRoute = createRoute({
+  getParentRoute: () => appRoute,
   path: "/companies",
   component: CompaniesPage,
 });
-
-const createRoute2 = createRoute({
-  getParentRoute: () => rootRoute,
+const createMaterialRoute = createRoute({
+  getParentRoute: () => appRoute,
   path: "/create",
   component: CreatePage,
 });
-
 const materialsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/materials",
   component: MaterialsPage,
 });
-
 const templatesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/templates",
   component: TemplatesPage,
 });
 
 const routeTree = rootRoute.addChildren([
-  indexRoute,
-  aboutRoute,
-  dashboardRoute,
+  marketingRoute.addChildren([indexRoute, aboutRoute]),
   loginRoute,
-  companiesRoute,
-  createRoute2,
-  materialsRoute,
-  templatesRoute,
+  appRoute.addChildren([
+    dashboardRoute,
+    companiesRoute,
+    createMaterialRoute,
+    materialsRoute,
+    templatesRoute,
+  ]),
 ]);
 
 export const router = createRouter({ routeTree });
