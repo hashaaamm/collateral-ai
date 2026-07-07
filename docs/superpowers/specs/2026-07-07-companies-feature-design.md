@@ -67,7 +67,8 @@ Registered under `companies` on the existing DRF router (`config/api_router.py`)
   - Builds object path `media/companies/logos/<uuid4>/<sanitized-filename>`.
   - Returns `{ upload_url, object_path }` where `upload_url` is a V4 signed **PUT** URL
     (expiry ~15 min) bound to that `content_type`.
-  - When GCS/signing is **not configured** (local dev), returns HTTP 503 with
+  - When GCS/signing is **not configured** (no `GS_BUCKET_NAME` — e.g. CI/unit tests;
+    NOT local dev, which runs the emulator), returns HTTP 503 with
     `{ detail: "Logo upload is not configured in this environment." }`.
 
 ### `CompanySerializer`
@@ -80,15 +81,27 @@ Registered under `companies` on the existing DRF router (`config/api_router.py`)
 
 ### Signing service — `companies/gcs.py`
 A small module isolating all GCS/signing so views/serializers stay clean and testable.
-- `is_configured() -> bool` — true when `settings.GS_BUCKET_NAME` is set (prod).
+- `is_configured() -> bool` — true when `settings.GS_BUCKET_NAME` is set (prod **and** local emulator).
 - `signed_upload_url(object_path: str, content_type: str) -> str` — V4 signed PUT.
 - `signed_get_url(object_path: str) -> str` — V4 signed GET.
-- Signing uses the **IAM SignBlob API** (keyless) on Cloud Run: obtain default
-  credentials via `google.auth.default()`, wrap with `google.auth.iam.Signer` (or
-  `google.cloud.storage.Blob.generate_signed_url(..., service_account_email=..., access_token=...)`),
-  so no SA key file is needed. The signer SA email + access token come from the runtime
-  ADC. Local dev has no bucket → `is_configured()` is false and the endpoints degrade
-  gracefully (503 for upload-url; `logo_url = null`).
+- **Dual signing mode** (same code path both environments; the bucket endpoint and the
+  signer differ):
+  - **Cloud Run (prod):** keyless — `google.auth.default()` returns compute credentials
+    (no private key); sign via the IAM SignBlob API by passing
+    `generate_signed_url(..., service_account_email=creds.service_account_email, access_token=creds.token)`.
+  - **Local (GCS emulator):** `google.auth.default()` returns a
+    `service_account.Credentials` loaded from a throwaway local key
+    (`GOOGLE_APPLICATION_CREDENTIALS`); sign directly with the key
+    (`generate_signed_url(credentials=creds, ...)`). The emulator does not verify the
+    signature, so the key authorizes nothing real.
+  - The signed-URL host comes from `settings.GCS_SIGNED_URL_ENDPOINT` (passed as
+    `api_access_endpoint`): unset in prod (defaults to `https://storage.googleapis.com`),
+    set locally to the **browser-reachable** emulator address (`http://localhost:4443`).
+    The backend's own bucket ops reach the emulator via `STORAGE_EMULATOR_HOST`
+    (`http://gcs:4443` inside compose).
+- Only when neither prod GCS nor the local emulator is configured (e.g. CI/unit tests,
+  where `GS_BUCKET_NAME` is unset) does `is_configured()` return false and the endpoints
+  degrade gracefully (503 for upload-url; `logo_url = null`).
 
 ---
 
@@ -125,6 +138,25 @@ existing `media/` prefix used by django-storages.
 No other infra changes. These must be applied (`infra-up`) before the logo flow works in
 prod; the rest of the feature (companies CRUD without logos) works regardless.
 
+## Local dev — GCS emulator (full parity)
+
+Local runs the **same signed-URL flow** against `fsouza/fake-gcs-server` so logo upload
+works locally exactly as in prod.
+
+- `docker-compose.local.yml` adds a `gcs` service (fake-gcs-server) with a pre-created
+  bucket, `-scheme http`, `-public-host localhost:4443`, listening on `:4443`, and its
+  bucket CORS allowing `http://localhost:3000` (PUT/GET). The `django` service depends on
+  it and gets `STORAGE_EMULATOR_HOST`, `GS_BUCKET_NAME`, `GCS_SIGNED_URL_ENDPOINT`, and
+  `GOOGLE_APPLICATION_CREDENTIALS` env.
+- `backend/config/settings/local.py` sets `GS_BUCKET_NAME`, switches the default
+  `STORAGES` backend to `GoogleCloudStorage`, and reads `GCS_SIGNED_URL_ENDPOINT`.
+- A **throwaway** local signer key ships in the repo (clearly labelled; authorizes
+  nothing — the emulator ignores signatures). If the pre-commit secret scanner flags it,
+  add a scoped allowlist entry.
+- Local end-to-end validation: `POST /api/companies/logo-upload-url/` → `PUT` the bytes
+  to the returned emulator URL → `GET` the signed URL back → 200. (curl-level in the
+  local task; browser-level in the frontend/prod checks.)
+
 ---
 
 ## Frontend (React + Vite, TanStack Router/Query, design tokens)
@@ -157,8 +189,9 @@ Regenerate OpenAPI types (`pnpm gen:api`) after the backend endpoints exist, the
   Not-found → friendly message + back link.
 - **Create** (`max-w-[760px]`): breadcrumb (Companies / New company); "Create Company"
   title + subtitle. Card: logo row (56px tile preview + "Upload logo" button, hint
-  "SVG or PNG, at least 128×128", upload progress/error, gracefully disabled with a hint
-  when the upload-url endpoint returns 503 locally); a 2-col field grid — **Company name**
+  "SVG or PNG, at least 128×128", upload progress/error, and a graceful "not configured"
+  hint if the upload-url endpoint returns 503 — which locally it won't, since the emulator
+  is configured); a 2-col field grid — **Company name**
   (required), **Website** (globe icon), **Industry**, **Description** (textarea, full row),
   **Brand colors** (swatch inputs + add button, ≤ 5). Footer: "Cancel" (→ list) +
   "Create Company" primary. On success → navigate to `/companies/$newId`. Uses

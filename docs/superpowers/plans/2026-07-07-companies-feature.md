@@ -14,6 +14,7 @@
 - **Images never upload to the backend body** — the browser PUTs directly to GCS via a signed URL.
 - GCS object path for logos: `media/companies/logos/<uuid4>/<sanitized-filename>`.
 - Logo-upload content-type allowlist: `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`.
+- **Same signed-URL flow locally and in prod:** local runs a GCS emulator (fsouza/fake-gcs-server, Task 5); prod uses real GCS. Signing is dual-mode (local key vs Cloud Run IAM SignBlob). The 503 "not configured" path only triggers where `GS_BUCKET_NAME` is unset (CI/unit tests). Local frontend origin is `http://localhost:3001`.
 - Signed PUT URL expiry ~15 min; signed GET URL expiry ~1 h.
 - APIs require auth (DRF default `IsAuthenticated`; frontend already sends `Authorization: Token <token>`).
 - Backend commands run in the backend container/venv (`docker compose run --rm django ...` or `just manage ...`); frontend commands run from `frontend/` with `pnpm`.
@@ -250,7 +251,10 @@ git commit -m "Add companies app with Company model and migration"
 - Create: `backend/collateral_ai/companies/tests/test_gcs.py`
 
 **Interfaces:**
-- Consumes: `settings.GS_BUCKET_NAME` (defined only in production settings).
+- Consumes: `settings.GS_BUCKET_NAME` (prod + local emulator) and the optional
+  `settings.GCS_SIGNED_URL_ENDPOINT` (set locally to the emulator host; Task 5 wires the
+  local settings + emulator). ADC via `GOOGLE_APPLICATION_CREDENTIALS` (local key) or
+  compute creds (prod).
 - Produces:
   - `is_configured() -> bool`
   - `build_logo_object_path(filename: str) -> str` → `media/companies/logos/<uuid4>/<sanitized>`
@@ -325,10 +329,18 @@ Expected: FAIL — `ModuleNotFoundError: collateral_ai.companies.gcs`.
 ```python
 """GCS V4 signed URLs for company logos.
 
-Signing is keyless on Cloud Run: default ADC credentials are refreshed and used
-with the IAM SignBlob API (requires roles/iam.serviceAccountTokenCreator on the
-runtime SA itself). No service-account key file is needed. When GS_BUCKET_NAME is
-unset (local dev), the module is "not configured" and callers degrade gracefully.
+Dual signing so the SAME code path runs in prod and local:
+- Cloud Run (prod): google.auth.default() yields compute credentials (no private key);
+  sign via the IAM SignBlob API (requires roles/iam.serviceAccountTokenCreator on the
+  runtime SA itself) by passing service_account_email + access_token.
+- Local (GCS emulator): GOOGLE_APPLICATION_CREDENTIALS points at a throwaway
+  service-account key, so google.auth.default() returns service_account.Credentials that
+  sign directly with the key. The emulator ignores the signature.
+
+The signed-URL host is settings.GCS_SIGNED_URL_ENDPOINT (passed as api_access_endpoint):
+unset in prod (defaults to real GCS), set to the browser-reachable emulator host locally.
+When GS_BUCKET_NAME is unset (CI/unit tests), the module is "not configured" and callers
+degrade gracefully.
 """
 from __future__ import annotations
 
@@ -341,6 +353,7 @@ import google.auth
 from django.conf import settings
 from google.auth.transport import requests as ga_requests
 from google.cloud import storage
+from google.oauth2 import service_account
 
 LOGO_PREFIX = "media/companies/logos"
 UPLOAD_EXPIRY = datetime.timedelta(minutes=15)
@@ -363,7 +376,6 @@ def _signing_credentials():
     credentials, _ = google.auth.default(
         scopes=["https://www.googleapis.com/auth/cloud-platform"],
     )
-    credentials.refresh(ga_requests.Request())
     return credentials
 
 
@@ -371,32 +383,38 @@ def _bucket():
     return storage.Client().bucket(settings.GS_BUCKET_NAME)
 
 
-def signed_upload_url(object_path: str, content_type: str) -> str:
+def _signed_url(object_path, *, method, expiration, content_type=None):
     creds = _signing_credentials()
     blob = _bucket().blob(object_path)
+    kwargs = {"version": "v4", "expiration": expiration, "method": method}
+    if content_type:
+        kwargs["content_type"] = content_type
+    endpoint = getattr(settings, "GCS_SIGNED_URL_ENDPOINT", "")
+    if endpoint:
+        kwargs["api_access_endpoint"] = endpoint
+    if isinstance(creds, service_account.Credentials):
+        # Local (emulator): sign directly with the throwaway service-account key.
+        return blob.generate_signed_url(credentials=creds, **kwargs)
+    # Cloud Run: keyless signing via the IAM SignBlob API.
+    creds.refresh(ga_requests.Request())
     return blob.generate_signed_url(
-        version="v4",
-        expiration=UPLOAD_EXPIRY,
-        method="PUT",
-        content_type=content_type,
         service_account_email=creds.service_account_email,
         access_token=creds.token,
+        **kwargs,
+    )
+
+
+def signed_upload_url(object_path: str, content_type: str) -> str:
+    return _signed_url(
+        object_path, method="PUT", expiration=UPLOAD_EXPIRY, content_type=content_type,
     )
 
 
 def signed_get_url(object_path: str) -> str:
-    creds = _signing_credentials()
-    blob = _bucket().blob(object_path)
-    return blob.generate_signed_url(
-        version="v4",
-        expiration=GET_EXPIRY,
-        method="GET",
-        service_account_email=creds.service_account_email,
-        access_token=creds.token,
-    )
+    return _signed_url(object_path, method="GET", expiration=GET_EXPIRY)
 ```
 
-Note: the tests patch both `gcs._bucket` and `gcs._signing_credentials`, so `google.auth`/`storage` are never called — the tests are hermetic and need no GCP credentials.
+Note: the tests patch both `gcs._bucket` and `gcs._signing_credentials`. Because the mocked credentials are not a `service_account.Credentials` instance, `_signed_url` takes the IAM branch (`creds.refresh` and `.service_account_email`/`.token` are harmless mock attributes), and `generate_signed_url` is mocked — so `google.auth`/`storage` are never really called and the tests are hermetic (no GCP creds needed). `GCS_SIGNED_URL_ENDPOINT` is unset in tests, so `api_access_endpoint` is not added and the existing kwargs assertions hold.
 
 - [ ] **Step 4: Run to verify pass**
 
@@ -667,7 +685,196 @@ git commit -m "Add companies API (CRUD + signed logo-upload-url) and regen OpenA
 
 ---
 
-### Task 5: Frontend API hooks + upload helper (TDD helper)
+### Task 5: Local GCS emulator + local config + end-to-end validation
+
+Bring up `fsouza/fake-gcs-server` locally so the exact signed-URL flow runs in dev.
+The frontend origin locally is `http://localhost:3001` (host 3001 → container 3000, per
+`docker-compose.local.yml`). The emulator does not verify signatures, so a throwaway
+service-account key (generated on container start, never committed) is used to sign.
+
+**Files:**
+- Modify: `docker-compose.local.yml` (add `gcs` service + django emulator env + depends_on)
+- Modify: `backend/config/settings/local.py` (read `GS_BUCKET_NAME` + `GCS_SIGNED_URL_ENDPOINT`)
+- Modify: `backend/.envs/.local/.django` (append emulator env)
+- Create: `backend/scripts/ensure_local_gcs_signer.py` (throwaway signer key at startup)
+- Create: `scripts/gcs-emulator-init.sh` (create bucket + set CORS)
+- Modify: `backend/.gitignore` (ignore the generated signer key)
+- Create: `backend/.gcs-emulator/collateral-ai-local-media/.gitkeep` (seed the bucket dir)
+- Modify: `justfile` (add a `gcs-init` recipe)
+
+**Interfaces:**
+- Consumes: `companies.gcs` (Task 3), the companies API (Task 4).
+- Produces: a working local logo-upload path — `GS_BUCKET_NAME=collateral-ai-local-media`,
+  `STORAGE_EMULATOR_HOST=http://gcs:4443`, `GCS_SIGNED_URL_ENDPOINT=http://localhost:4443`,
+  `GOOGLE_APPLICATION_CREDENTIALS=/app/.gcs-signer.json`.
+
+> Note: fake-gcs-server flags/behavior vary slightly by image tag. The commands below use
+> the common flags; if your pulled tag differs, adjust the flags (e.g. `-data` vs
+> `-filesystem-root`) and note it in the report. The bucket+CORS init via the JSON API is
+> version-stable.
+
+- [ ] **Step 1: Add the emulator service to `docker-compose.local.yml`**
+
+Add under `services:` (and add `gcs` to the `django` service's `depends_on`):
+```yaml
+  gcs:
+    image: fsouza/fake-gcs-server:latest
+    container_name: collateral_ai_local_gcs
+    command: -scheme http -public-host localhost:4443 -port 4443 -data /data
+    ports:
+      - "4443:4443"
+    volumes:
+      - ./backend/.gcs-emulator:/data
+```
+Update the `django` service:
+```yaml
+    depends_on:
+      - postgres
+      - gcs
+```
+
+- [ ] **Step 2: Seed the bucket directory**
+
+Create `backend/.gcs-emulator/collateral-ai-local-media/.gitkeep` (empty file) so the
+emulator exposes the bucket on startup.
+
+- [ ] **Step 3: Throwaway signer key at startup — `backend/scripts/ensure_local_gcs_signer.py`**
+
+```python
+"""Generate a throwaway service-account key for LOCAL GCS signing.
+
+fake-gcs-server ignores the signature, so this key authorizes nothing — it only lets
+google-cloud-storage compute a V4 signature offline. Regenerated on each container start;
+never committed.
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+DEST = Path(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "/app/.gcs-signer.json"))
+
+
+def main() -> None:
+    if DEST.exists():
+        return
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.NoEncryption(),
+    ).decode()
+    DEST.write_text(
+        json.dumps(
+            {
+                "type": "service_account",
+                "project_id": "local",
+                "private_key_id": "local",
+                "private_key": pem,
+                "client_email": "fake-signer@local.iam.gserviceaccount.com",
+                "client_id": "0",
+                "token_uri": "https://oauth2.googleapis.com/token",
+            },
+            indent=2,
+        ),
+    )
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Change the `django` service `command` in `docker-compose.local.yml` from `/start` to:
+```yaml
+    command: sh -c "python /app/scripts/ensure_local_gcs_signer.py && exec /start"
+```
+
+Add to `backend/.gitignore`:
+```
+.gcs-signer.json
+```
+
+- [ ] **Step 4: Append emulator env to `backend/.envs/.local/.django`**
+
+```
+# GCS emulator (fake-gcs-server) — local logo signed-URL parity
+DJANGO_GCP_STORAGE_BUCKET_NAME=collateral-ai-local-media
+STORAGE_EMULATOR_HOST=http://gcs:4443
+GCS_SIGNED_URL_ENDPOINT=http://localhost:4443
+GOOGLE_APPLICATION_CREDENTIALS=/app/.gcs-signer.json
+```
+
+- [ ] **Step 5: Read the settings in `backend/config/settings/local.py`**
+
+Append (after the existing imports/blocks):
+```python
+# GCS — local emulator parity for company logo signed URLs (see docker-compose gcs service).
+# When these are unset (no emulator), companies.gcs.is_configured() is False and the
+# upload endpoint returns 503 gracefully.
+GS_BUCKET_NAME = env("DJANGO_GCP_STORAGE_BUCKET_NAME", default="")
+GCS_SIGNED_URL_ENDPOINT = env("GCS_SIGNED_URL_ENDPOINT", default="")
+```
+
+- [ ] **Step 6: Bucket + CORS init script — `scripts/gcs-emulator-init.sh`**
+
+```bash
+#!/usr/bin/env bash
+# Create the local logo bucket (idempotent) and set CORS so the browser (localhost:3001)
+# can PUT directly to the emulator. Run after `just up`.
+set -euo pipefail
+HOST="${1:-http://localhost:4443}"
+BUCKET="collateral-ai-local-media"
+curl -sf -X POST "$HOST/storage/v1/b" -H "Content-Type: application/json" \
+  -d "{\"name\":\"$BUCKET\"}" >/dev/null 2>&1 || true
+curl -sf -X PATCH "$HOST/storage/v1/b/$BUCKET" -H "Content-Type: application/json" \
+  -d '{"cors":[{"origin":["http://localhost:3001","http://localhost:3000"],"method":["GET","PUT","POST","OPTIONS"],"responseHeader":["Content-Type"],"maxAgeSeconds":3600}]}' >/dev/null
+echo "GCS emulator: bucket + CORS ready"
+```
+Make it executable (`chmod +x scripts/gcs-emulator-init.sh`) and add a `justfile` recipe:
+```
+# Initialize the local GCS emulator bucket + CORS (run after `just up`)
+gcs-init:
+    bash scripts/gcs-emulator-init.sh
+```
+
+- [ ] **Step 7: End-to-end local validation**
+
+Run:
+```bash
+just up                          # brings up postgres, gcs, django, frontend
+sleep 5 && just gcs-init         # create bucket + CORS
+just manage createsuperuser      # or: create a user non-interactively
+```
+Then exercise the flow (substitute the created user's email/password):
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth-token/ -H 'Content-Type: application/json' -d '{"username":"<email>","password":"<pw>"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+RESP=$(curl -s -X POST http://localhost:8000/api/companies/logo-upload-url/ -H "Authorization: Token $TOKEN" -H 'Content-Type: application/json' -d '{"filename":"logo.png","content_type":"image/png"}')
+echo "$RESP"                      # expect {"upload_url":"http://localhost:4443/...","object_path":"media/companies/logos/.../logo.png"}
+UPLOAD_URL=$(echo "$RESP" | python -c "import sys,json;print(json.load(sys.stdin)['upload_url'])")
+OBJECT=$(echo "$RESP" | python -c "import sys,json;print(json.load(sys.stdin)['object_path'])")
+printf 'PNGDATA' > /tmp/logo.png
+curl -s -o /dev/null -w "PUT %{http_code}\n" -X PUT "$UPLOAD_URL" -H 'Content-Type: image/png' --data-binary @/tmp/logo.png   # expect 200
+CID=$(curl -s -X POST http://localhost:8000/api/companies/ -H "Authorization: Token $TOKEN" -H 'Content-Type: application/json' -d "{\"name\":\"LogoCo\",\"logo\":\"$OBJECT\"}" | python -c "import sys,json;print(json.load(sys.stdin)['id'])")
+LOGO_URL=$(curl -s http://localhost:8000/api/companies/$CID/ -H "Authorization: Token $TOKEN" | python -c "import sys,json;print(json.load(sys.stdin)['logo_url'])")
+echo "logo_url=$LOGO_URL"          # expect a signed http://localhost:4443/... URL
+curl -s -o /dev/null -w "GET %{http_code}\n" "$LOGO_URL"   # expect 200
+```
+Expected: the upload-url returns a `localhost:4443` signed URL, the PUT returns 200, and the signed GET returns 200. If a step fails due to an emulator flag/behavior, adjust and record what was needed; if it cannot be made to work, report DONE_WITH_CONCERNS with the exact failure.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add docker-compose.local.yml backend/config/settings/local.py backend/.envs/.local/.django backend/scripts/ensure_local_gcs_signer.py scripts/gcs-emulator-init.sh backend/.gitignore backend/.gcs-emulator/collateral-ai-local-media/.gitkeep justfile
+git commit -m "Add local GCS emulator (fake-gcs-server) for logo signed-URL parity"
+```
+
+---
+
+### Task 6: Frontend API hooks + upload helper (TDD helper)
 
 **Files:**
 - Create: `frontend/src/lib/api/companies.ts`
@@ -826,7 +1033,7 @@ git commit -m "Add companies API hooks and signed-URL upload helper"
 
 ---
 
-### Task 6: Frontend — Companies list + detail pages + routes
+### Task 7: Frontend — Companies list + detail pages + routes
 
 **Files:**
 - Create: `frontend/src/routes/companies-list.tsx`
@@ -1088,7 +1295,7 @@ git commit -m "Add companies list + detail pages and routes"
 
 ---
 
-### Task 7: Frontend — New Company page (form + logo upload) + route
+### Task 8: Frontend — New Company page (form + logo upload) + route
 
 **Files:**
 - Create: `frontend/src/routes/company-new.tsx`
@@ -1307,11 +1514,11 @@ git commit -m "Add New Company page with signed-URL logo upload"
 ## Post-implementation (controller)
 
 After all tasks pass review:
-1. **Apply infra via Pulumi:** run `infra-up` (deploy/) to grant the runtime SA self-`tokenCreator` and update bucket CORS. This is required before logo upload works in prod.
+1. **Apply infra via Pulumi:** run `infra-up` (deploy/) to grant the runtime SA self-`tokenCreator` and update bucket CORS. Required before logo upload works in prod. **Verify** the effective bucket CORS actually includes `https://collateralai.tinyfleet.dev` (the deploy env may set `BUCKET_CORS_ALLOWED_ORIGINS`, which overrides the code default — if it still lists `example.com`, update that env value, via Pulumi config, and re-apply).
 2. **Merge `feat/companies` → `main`** and push → CD deploys backend (migrations run) + frontend.
 3. **Prod verify:** log in, create a company with a logo (signed PUT to GCS → create), confirm the logo renders on the list and detail via the signed GET URL; create one without a logo; confirm list/detail/guards.
 
 ## Notes for the implementer
 - Backend tests never hit real GCP — `companies.gcs` functions are mocked at their call sites (`companies.api.views.gcs.*`, `companies.api.serializers.gcs.*`, or `gcs._bucket`/`gcs._signing_credentials`).
 - The frontend PUT to GCS uses raw `fetch` (not the openapi-fetch `api` client) because the signed URL is an external GCS endpoint; no auth header is sent (the signature authorizes it).
-- Local dev: `logo-upload-url` returns 503 and the create form shows "not configured" — creating companies without a logo works locally and in tests.
+- Local dev runs the GCS emulator (Task 5), so the full signed-URL flow works locally — `logo-upload-url` returns a real (emulator) signed URL. The 503 "not configured" path only triggers in CI/unit tests where `GS_BUCKET_NAME` is unset.
