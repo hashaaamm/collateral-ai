@@ -62,7 +62,7 @@ export interface paths {
         get: operations["companies_documents_retrieve"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["companies_documents_destroy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -433,6 +433,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Document"];
                 };
+            };
+        };
+    };
+    companies_documents_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_pk: number;
+                /** @description A unique integer value identifying this document. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

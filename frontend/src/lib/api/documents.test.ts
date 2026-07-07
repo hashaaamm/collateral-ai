@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { uploadDocument } from "./documents";
+import { deleteDocument, uploadDocument } from "./documents";
 import { api } from "./client";
 import * as upload from "./upload";
 
@@ -47,5 +47,15 @@ describe("uploadDocument", () => {
     await expect(
       uploadDocument({ companyId: 3, file: pdf(), onProgress: vi.fn() }),
     ).rejects.toThrow("upload_not_configured");
+  });
+});
+
+describe("deleteDocument", () => {
+  it("issues a nested DELETE for the given company + id", async () => {
+    const del = vi.spyOn(api, "DELETE").mockResolvedValue({ data: undefined, error: undefined } as never);
+    await deleteDocument(3, 7);
+    expect(del).toHaveBeenCalledWith("/api/companies/{company_pk}/documents/{id}/", {
+      params: { path: { company_pk: 3, id: 7 } },
+    });
   });
 });

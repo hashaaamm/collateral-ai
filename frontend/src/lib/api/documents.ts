@@ -45,6 +45,23 @@ export async function uploadDocument({
   return done.data as Document;
 }
 
+export async function deleteDocument(companyId: number, id: number): Promise<void> {
+  const { error } = await api.DELETE("/api/companies/{company_pk}/documents/{id}/", {
+    params: { path: { company_pk: companyId, id } },
+  });
+  if (error) throw new Error("delete_failed");
+}
+
+export function useDeleteDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, companyId }: { id: number; companyId: number }) =>
+      deleteDocument(companyId, id),
+    onSuccess: (_data, { companyId }) =>
+      qc.invalidateQueries({ queryKey: ["documents", companyId] }),
+  });
+}
+
 export function useCompleteDocument() {
   const qc = useQueryClient();
   return useMutation({

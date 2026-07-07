@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowClockwise, FilePdf, UploadSimple } from "@phosphor-icons/react";
+import { ArrowClockwise, FilePdf, Trash, UploadSimple } from "@phosphor-icons/react";
 
 import { StatusPill } from "@/components/status-pill";
 import {
   useCompleteDocument,
+  useDeleteDocument,
   useDocuments,
   uploadDocument,
   type Document,
@@ -18,6 +19,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
   const qc = useQueryClient();
   const { data: docs = [], isLoading } = useDocuments(companyId);
   const retry = useCompleteDocument();
+  const del = useDeleteDocument();
   const fileRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
@@ -117,6 +119,18 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
                           <ArrowClockwise size={13} /> Retry
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete "${d.file_name}"? This can't be undone.`)) {
+                            del.mutate({ id: d.id, companyId });
+                          }
+                        }}
+                        className="flex items-center gap-1 text-[12px] text-mute hover:text-destructive"
+                        aria-label={`Delete ${d.file_name}`}
+                      >
+                        <Trash size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
