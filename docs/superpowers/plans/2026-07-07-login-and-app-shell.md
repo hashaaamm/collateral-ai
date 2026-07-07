@@ -553,7 +553,7 @@ git commit -m "Add pixel-matched login page and shadcn Input"
 **Files:**
 - Create: `frontend/src/components/placeholder-page.tsx`
 - Create: `frontend/src/components/app-shell.tsx`
-- Create: `frontend/src/routes/dashboard.tsx`
+- Modify: `frontend/src/routes/dashboard.tsx` (a stub `export function DashboardPage()` already exists from Task 4; replace its body to use `PlaceholderPage`)
 - Create: `frontend/src/routes/companies.tsx`
 - Create: `frontend/src/routes/create.tsx`
 - Create: `frontend/src/routes/materials.tsx`
@@ -582,7 +582,7 @@ export function PlaceholderPage({ title }: { title: string }) {
 
 - [ ] **Step 2: Create the five page components**
 
-`frontend/src/routes/dashboard.tsx`:
+`frontend/src/routes/dashboard.tsx` (a stub with the same export name exists from Task 4 — replace the whole file contents with this):
 ```tsx
 import { PlaceholderPage } from "@/components/placeholder-page";
 
