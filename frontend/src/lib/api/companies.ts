@@ -4,11 +4,14 @@ import { api } from "./client";
 
 export type Company = components["schemas"]["Company"];
 
-export function useCompanies() {
+export function useCompanies(search?: string) {
+  const q = search?.trim() ?? "";
   return useQuery({
-    queryKey: ["companies"],
+    queryKey: ["companies", { search: q }],
     queryFn: async () => {
-      const { data, error } = await api.GET("/api/companies/");
+      const { data, error } = await api.GET("/api/companies/", {
+        params: q ? { query: { search: q } } : {},
+      });
       if (error) throw error;
       return data;
     },
@@ -48,6 +51,46 @@ export function useCreateCompany() {
       });
       if (error || !data) throw new Error("create_failed");
       return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["companies"] }),
+  });
+}
+
+type CompanyWrite = {
+  name?: string;
+  website?: string;
+  industry?: string;
+  description?: string;
+  brand_colors?: string[];
+  logo?: string;
+};
+
+export function useUpdateCompany(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: CompanyWrite) => {
+      const { data, error } = await api.PATCH("/api/companies/{id}/", {
+        params: { path: { id } },
+        body: body as components["schemas"]["PatchedCompany"],
+      });
+      if (error || !data) throw new Error("update_failed");
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["companies"] });
+      qc.invalidateQueries({ queryKey: ["companies", id] });
+    },
+  });
+}
+
+export function useDeleteCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await api.DELETE("/api/companies/{id}/", {
+        params: { path: { id } },
+      });
+      if (error) throw new Error("delete_failed");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["companies"] }),
   });
