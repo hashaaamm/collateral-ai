@@ -96,6 +96,9 @@ sql_instance = gcp.sql.DatabaseInstance(
     settings=gcp.sql.DatabaseInstanceSettingsArgs(
         # Cost-conscious defaults. db-custom-1-3840 = 1 vCPU / 3.75 GB. ZONAL (single zone) is far
         # cheaper than REGIONAL HA — set SQL_AVAILABILITY_TYPE=REGIONAL for production HA (roughly 2x).
+        # ENTERPRISE (not ENTERPRISE_PLUS) is required for shared-core/legacy tiers like db-g1-small;
+        # ENTERPRISE_PLUS only accepts db-perf-optimized-* tiers.
+        edition=os.environ.get("SQL_EDITION", "ENTERPRISE"),
         tier=os.environ.get("SQL_INSTANCE_TIER", "db-custom-1-3840"),
         availability_type=os.environ.get("SQL_AVAILABILITY_TYPE", "ZONAL"),
         disk_type="PD_SSD",

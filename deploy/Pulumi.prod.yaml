@@ -1,0 +1,5 @@
+secretsprovider: gcpkms://projects/collateralai-501708/locations/us-central1/keyRings/pulumi/cryptoKeys/stack
+encryptedkey: CiQAHrdpkC0jEdo9+q8uBq2Y189djFzbWCUJMv3ySEkJYQSQsLwSSQCwEY+oey4IwGM4Us6xXwpAouevHfAbO7YHEgRJzdvog4woL1VxTDXak+f8HX0abxPFCctmzrZnkptn8lMPzXMYnrHoUAI93AU=
+config:
+  gcp:project: collateralai-501708
+  gcp:region: us-central1
