@@ -122,3 +122,28 @@ def test_complete_other_companys_document_404(auth_client):
     assert resp.status_code == HTTPStatus.NOT_FOUND
     doc_b.refresh_from_db()
     assert doc_b.status == DocumentStatus.PENDING
+
+
+def test_delete_removes_row_and_cleans_gcs(auth_client):
+    doc = DocumentFactory(storage_path="media/companies/1/documents/1/doc.pdf")
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
+    ), mock.patch(
+        "collateral_ai.documents.api.views.gcs.delete_object",
+    ) as delete_object:
+        resp = auth_client.delete(f"{docs_url(doc.company_id)}{doc.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not Document.objects.filter(pk=doc.pk).exists()
+    delete_object.assert_called_once_with("media/companies/1/documents/1/doc.pdf")
+
+
+def test_delete_skips_gcs_when_unconfigured(auth_client):
+    doc = DocumentFactory()
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured", return_value=False,
+    ), mock.patch(
+        "collateral_ai.documents.api.views.gcs.delete_object",
+    ) as delete_object:
+        resp = auth_client.delete(f"{docs_url(doc.company_id)}{doc.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    delete_object.assert_not_called()

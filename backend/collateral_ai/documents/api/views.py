@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin
+from rest_framework.mixins import DestroyModelMixin
 from rest_framework.mixins import ListModelMixin
 from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.response import Response
@@ -23,6 +24,7 @@ class DocumentViewSet(
     ListModelMixin,
     RetrieveModelMixin,
     CreateModelMixin,
+    DestroyModelMixin,
     GenericViewSet,
 ):
     serializer_class = DocumentSerializer
@@ -98,3 +100,8 @@ class DocumentViewSet(
         doc.error_message = ""
         doc.save(update_fields=["status", "error_message", "updated_at"])
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
+
+    def perform_destroy(self, instance):
+        if instance.storage_path and gcs.is_configured():
+            gcs.delete_object(instance.storage_path)
+        instance.delete()
