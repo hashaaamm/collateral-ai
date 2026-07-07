@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from pgvector.django import VectorField
 
 from collateral_ai.documents.statuses import DocumentStatus
 
@@ -36,3 +37,28 @@ class Document(models.Model):
 
     def __str__(self) -> str:
         return f"{self.file_name} ({self.status})"
+
+
+class DocumentChunk(models.Model):
+    """One embedded chunk of a processed document (text, table, or image caption)."""
+
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="chunks",
+    )
+    company = models.ForeignKey(
+        "companies.Company", on_delete=models.CASCADE, related_name="document_chunks",
+    )
+    chunk_type = models.CharField(_("chunk type"), max_length=32)
+    page_number = models.PositiveIntegerField()
+    content = models.TextField()
+    embedding = VectorField(dimensions=768)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("document chunk")
+        verbose_name_plural = _("document chunks")
+        ordering = ["document_id", "page_number", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.document_id} p{self.page_number} {self.chunk_type}"
