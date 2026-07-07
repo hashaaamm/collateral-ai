@@ -2,15 +2,8 @@
 
 import django.db.models.deletion
 import pgvector.django.vector
+from django.contrib.postgres.operations import CreateExtension
 from django.db import migrations, models
-from pgvector.django import VectorExtension
-
-# pgvector==0.4.1's VectorExtension.__init__ does not call
-# CreateExtension.__init__, so `self.hints` is never set. Django 6.0's
-# CreateExtension.database_forwards/backwards reads `self.hints`, which
-# raises AttributeError. Patch it in until pgvector ships a fixed release.
-_vector_extension = VectorExtension()
-_vector_extension.hints = {}
 
 
 class Migration(migrations.Migration):
@@ -21,7 +14,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        _vector_extension,
+        CreateExtension("vector"),
         migrations.CreateModel(
             name='DocumentChunk',
             fields=[
