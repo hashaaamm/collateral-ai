@@ -1,3 +1,4 @@
+from django.core.management import call_command
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import inline_serializer
@@ -106,11 +107,15 @@ class DocumentViewSet(
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None, company_pk=None):
         doc = self.get_object()
-        # Phase 1: the worker is a stub. Flip to processing so the UI shows a pill;
-        # Phase 2 wires this to the Cloud Run Job / inline worker.
         doc.status = DocumentStatus.PROCESSING
         doc.error_message = ""
         doc.save(update_fields=["status", "error_message", "updated_at"])
+        # Phase 2a: process inline. Phase 2b routes this to a Cloud Run Job in prod.
+        try:
+            call_command("process_document", document_id=doc.pk)
+        except Exception:  # noqa: BLE001 — pipeline marks the row failed; report 202 either way
+            pass
+        doc.refresh_from_db()
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
 
     def perform_destroy(self, instance):

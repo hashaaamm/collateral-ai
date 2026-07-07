@@ -90,18 +90,20 @@ def test_create_503_when_unconfigured(auth_client):
     assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
 
-def test_complete_marks_processing_and_returns_202(auth_client):
+def test_complete_triggers_processing_and_returns_202(auth_client):
     doc = DocumentFactory(status=DocumentStatus.PENDING)
-    resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
+    with mock.patch(
+        "collateral_ai.documents.api.views.call_command",
+    ) as call_command:
+        resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
     assert resp.status_code == HTTPStatus.ACCEPTED
-    assert resp.json()["status"] == DocumentStatus.PROCESSING
-    doc.refresh_from_db()
-    assert doc.status == DocumentStatus.PROCESSING
+    call_command.assert_called_once_with("process_document", document_id=doc.pk)
 
 
 def test_complete_retries_failed_doc(auth_client):
     doc = DocumentFactory(status=DocumentStatus.FAILED, error_message="boom")
-    resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
+    with mock.patch("collateral_ai.documents.api.views.call_command"):
+        resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
     assert resp.status_code == HTTPStatus.ACCEPTED
     doc.refresh_from_db()
     assert doc.status == DocumentStatus.PROCESSING
