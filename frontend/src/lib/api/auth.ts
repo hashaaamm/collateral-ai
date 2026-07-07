@@ -19,13 +19,29 @@ export type LoginValues = z.infer<typeof loginSchema>;
 export function useLogin() {
   return useMutation({
     mutationFn: async ({ email, password }: LoginValues) => {
-      const { data, error } = await api.POST("/api/auth-token/", {
-        // drf-spectacular lists the readonly `token` on the request body; we
-        // only send username + password. AuthToken is assignable to this
-        // narrower shape, so the cast is safe.
-        body: { username: email, password } as components["schemas"]["AuthToken"],
-      });
-      if (error || !data) throw new Error("invalid_credentials");
+      async function post() {
+        try {
+          return await api.POST("/api/auth-token/", {
+            // drf-spectacular lists the readonly `token` on the request
+            // body; we only send username + password. AuthToken is
+            // assignable to this narrower shape, so the cast is safe.
+            body: {
+              username: email,
+              password,
+            } as components["schemas"]["AuthToken"],
+          });
+        } catch {
+          throw new Error("network_error");
+        }
+      }
+      const result = await post();
+      const status = result.response.status;
+      const { data, error } = result;
+      if (error || !data) {
+        throw new Error(
+          status === 400 ? "invalid_credentials" : "network_error",
+        );
+      }
       setToken(data.token);
       return data;
     },

@@ -1,4 +1,5 @@
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Buildings,
   Layout,
@@ -31,10 +32,12 @@ function initials(name: string | undefined): string {
 
 export function AppShell() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const displayName = user?.name?.trim() ? user.name : "Account";
 
   function signOut() {
+    queryClient.clear();
     clearToken();
     navigate({ to: "/login" });
   }

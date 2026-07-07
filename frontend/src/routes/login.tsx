@@ -35,6 +35,11 @@ export function LoginPage() {
     });
   });
 
+  const serverError =
+    login.error instanceof Error && login.error.message === "invalid_credentials"
+      ? "Incorrect email or password"
+      : "Something went wrong. Please try again.";
+
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(120%_120%_at_50%_0%,#eeeefb_0%,#f6f6f8_55%)] p-6">
       <div className="w-full max-w-[400px]">
@@ -113,7 +118,7 @@ export function LoginPage() {
             {/* Server error */}
             {login.isError && (
               <p className="mb-3 text-sm text-destructive">
-                Incorrect email or password
+                {serverError}
               </p>
             )}
 
