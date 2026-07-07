@@ -84,12 +84,12 @@ export function CreateCompanyPage() {
             {logoPreview ? (
               <img src={logoPreview} alt="Logo preview" className="size-[56px] flex-none rounded-[13px] object-cover" />
             ) : (
-              <div className="flex size-[56px] flex-none items-center justify-center rounded-[13px] bg-[#f2f2f6] text-faint">
+              <div className="flex size-[56px] flex-none items-center justify-center rounded-[13px] bg-subtle text-faint">
                 <Buildings size={24} />
               </div>
             )}
             <div>
-              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden onChange={onPickFile} />
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden onChange={onPickFile} aria-label="Upload company logo" />
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
@@ -99,7 +99,7 @@ export function CreateCompanyPage() {
                 <UploadSimple size={14} />
                 {uploadState === "uploading" ? "Uploading…" : "Upload logo"}
               </button>
-              <div className="mt-[6px] text-[11.5px] text-faint">
+              <div className="mt-[6px] text-[11.5px] text-faint" aria-live="polite">
                 {uploadState === "error" && <span className="text-destructive">Upload failed. Try again.</span>}
                 {uploadState === "unavailable" && "Logo upload isn't configured in this environment."}
                 {uploadState !== "error" && uploadState !== "unavailable" && "SVG or PNG, at least 128×128"}
