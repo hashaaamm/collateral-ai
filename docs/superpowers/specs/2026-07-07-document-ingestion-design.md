@@ -114,21 +114,27 @@ on it.
 
 ## API — DRF (`documents/api/`)
 
-`DocumentViewSet` registered on the router as `documents` (basename `document`), mirroring
-`CompanyViewSet`. Mixins: `List`, `Retrieve`, `Create`. `IsAuthenticated` (project default).
+`DocumentViewSet` is **nested under companies** via `drf-nested-routers`
+(`NestedSimpleRouter(router, "companies", lookup="company")` → URL kwarg `company_pk`).
+Company scoping is structural — it comes from the URL path, not a body/query field. Mixins:
+`List`, `Retrieve`, `Create`, `Destroy`. `IsAuthenticated` (project default).
 
 | Method / path | Purpose |
 |---|---|
-| `GET /api/documents/?company={id}` | List a company's documents, newest first. `company` filter required in practice (list is company-scoped in the UI). |
-| `POST /api/documents/` | Body `{company, file_name, content_type}`. Validates `content_type == application/pdf`. Creates `Document(status="pending")`, builds a GCS object path, returns the serialized document **plus `upload_url`** (signed PUT, 15-min expiry). Returns **503** if GCS is not configured (mirrors logo upload). |
-| `GET /api/documents/{id}/` | Retrieve one document (used by polling if needed). |
-| `POST /api/documents/{id}/complete/` | Marks `processing`, triggers the worker, returns **202** + document. Idempotent-ish: re-callable on `failed` (retry) and no-op-safe on already-terminal states. |
-| `DELETE /api/documents/{id}/` | Deletes the document. `perform_destroy` removes the stored PDF (and, Phase 2, extracted images) from GCS via best-effort `gcs.delete_object`, then deletes the row — `DocumentChunk` rows (and their embeddings/vectors) go with it via `on_delete=CASCADE`. Returns **204**. |
+| `GET /api/companies/{company_pk}/documents/` | List the company's documents, newest first (queryset filtered by `company_pk`). |
+| `POST /api/companies/{company_pk}/documents/` | Body `{file_name, content_type}` (company from the URL). Validates `content_type == application/pdf`. Creates `Document(status="pending")`, builds a GCS object path, returns the serialized document **plus `upload_url`** (signed PUT, 15-min expiry). **503** if GCS is not configured (mirrors logo upload), **400** on non-PDF. |
+| `GET /api/companies/{company_pk}/documents/{id}/` | Retrieve one document (used by polling if needed). |
+| `POST /api/companies/{company_pk}/documents/{id}/complete/` | Marks `processing`, triggers the worker, returns **202** + document. Idempotent-ish: re-callable on `failed` (retry) and no-op-safe on already-terminal states. |
+| `DELETE /api/companies/{company_pk}/documents/{id}/` | Deletes the document. `perform_destroy` removes the stored PDF (and, Phase 2, extracted images) from GCS via best-effort `gcs.delete_object`, then deletes the row — `DocumentChunk` rows (and their embeddings/vectors) go with it via `on_delete=CASCADE`. Returns **204**. |
+
+> Registration: `config/api_router.py` keeps the flat `DefaultRouter`/`SimpleRouter` for existing
+> resources and appends a `NestedSimpleRouter` under `companies` for documents:
+> `urlpatterns = router.urls + companies_router.urls`. Dependency: `drf-nested-routers`.
 
 **Upload flow (two calls, mirrors logo pattern):**
-1. `POST /api/documents/` → `{ ...document, upload_url }` (row reserved as `pending`).
+1. `POST /api/companies/{company_pk}/documents/` → `{ ...document, upload_url }` (row reserved as `pending`).
 2. Client `PUT`s bytes to `upload_url` (GCS) with an XHR progress bar.
-3. `POST /api/documents/{id}/complete/` → `202`, worker triggered.
+3. `POST /api/companies/{company_pk}/documents/{id}/complete/` → `202`, worker triggered.
 
 Orphans (created but never completed, e.g. PUT failed) simply remain `pending`; cleanup is a
 future concern, not MVP.
@@ -231,12 +237,12 @@ currently `postgres:16`) to a pgvector-enabled base (e.g. `pgvector/pgvector:pg1
   **Coordination:** the CRUD session may also edit this file — keep changes additive
   (introduce the tab shell, move existing content into the Overview tab).
 - **Dropzone** (dashed, "Drop PDFs here or **browse** · PDF only · max 50 MB"). For each accepted
-  file: `POST /documents/` → `PUT` to GCS via **XHR with progress events** → `POST /complete/`.
-  Per-file progress + status shown inline while uploading.
+  file: `POST /api/companies/{id}/documents/` → `PUT` to GCS via **XHR with progress events** →
+  `POST .../documents/{docId}/complete/`. Per-file progress + status shown inline while uploading.
 - **Documents table** matching the design columns: File name (+ "Uploaded … · relative time")
   · Type · Pages · Chunks · Tables · Images · **StatusPill**. `—` (muted) for null numeric cells.
   **Failed** rows expose a **Retry** action (re-calls `complete`) and can surface `error_message`.
-  Every row exposes a **Delete** action (confirm → `DELETE /api/documents/{id}/` → invalidate list).
+  Every row exposes a **Delete** action (confirm → `DELETE /api/companies/{company_pk}/documents/{id}/` → invalidate list).
 - **Polling:** while any listed doc is `processing`, TanStack Query `refetchInterval` (~3 s)
   refreshes the list until all settle, then stops.
 - **API layer:** new `lib/api/documents.ts` hooks (`useDocuments(companyId)`, `useCreateDocument`

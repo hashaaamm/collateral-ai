@@ -4,7 +4,7 @@
 
 **Goal:** Let a user upload PDFs to a company and see them listed with a live status, with bytes going straight to GCS — no processing yet (`complete` is a stub that returns 202).
 
-**Architecture:** A new Django `documents` app adds a `Document` model and a DRF `DocumentViewSet` mirroring the existing `companies` app. Upload is a two-call flow: `POST /api/documents/` reserves a `pending` row and returns a signed GCS PUT URL; the browser PUTs the file (with an XHR progress bar); `POST /api/documents/{id}/complete/` flips it to `processing` and (Phase 1) just returns 202. The frontend adds a Documents tab to Company Detail with a dropzone, table, progress bar, and polling.
+**Architecture:** A new Django `documents` app adds a `Document` model and a DRF `DocumentViewSet` **nested under companies** (`drf-nested-routers`, `/api/companies/{company_pk}/documents/…`). Upload is a two-call flow: `POST …/documents/` reserves a `pending` row and returns a signed GCS PUT URL; the browser PUTs the file (with an XHR progress bar); `POST …/documents/{id}/complete/` flips it to `processing` and (Phase 1) just returns 202. The frontend adds a Documents tab to Company Detail with a dropzone, table, progress bar, and polling.
 
 **Tech Stack:** Django + DRF, drf-spectacular, GCS V4 signed URLs (reused from `companies/gcs.py`), React + Vite, TanStack Query, openapi-fetch/openapi-typescript, Tailwind v4, Phosphor icons.
 
@@ -18,6 +18,10 @@
 - Backend tests run via `just pytest <path>` (docker compose, settings `config.settings.test`). Frontend tests run via `pnpm test` from `frontend/`.
 - TDD: write the failing test first. Commit after each green task. DRY. YAGNI.
 - Status values live in one place: `collateral_ai.documents.statuses.DocumentStatus`.
+- The documents API is **nested under companies** via `drf-nested-routers`
+  (`/api/companies/{company_pk}/documents/…`). Company comes from the URL kwarg `company_pk`,
+  never from the request body. Exact generated path-param name (`company_pk`) is confirmed by
+  `just gen-api`; use whatever the regenerated `schema.d.ts` emits.
 
 ## File Structure
 
@@ -28,12 +32,13 @@
 - `gcs.py` — `build_document_object_path()` + thin re-export of the signed-URL helper.
 - `migrations/0001_initial.py` — `Document` table.
 - `api/__init__.py`, `api/serializers.py` — `DocumentSerializer`.
-- `api/views.py` — `DocumentViewSet` (list, create+upload-url, `complete` stub).
+- `api/views.py` — `DocumentViewSet` (list, create+upload-url, `complete` stub, destroy) reading `company_pk` from the URL.
 - `tests/__init__.py`, `tests/factories.py`, `tests/test_models.py`, `tests/api/__init__.py`, `tests/api/test_views.py`.
 
 **Backend (modified):**
 - `config/settings/base.py` — add app to `LOCAL_APPS`.
-- `config/api_router.py` — register `DocumentViewSet`.
+- `config/api_router.py` — append a `NestedSimpleRouter` under `companies` for `DocumentViewSet`.
+- `pyproject.toml` — add the `drf-nested-routers` dependency.
 
 **Frontend (new):**
 - `src/lib/api/upload.ts` — `putWithProgress()` (XHR upload with progress), isolated for testability.
@@ -327,9 +332,10 @@ git commit -m "feat(documents): add GCS object-path helper reusing companies sig
 
 ---
 
-### Task 3: `DocumentViewSet` — list, create+upload-url, complete stub
+### Task 3: `DocumentViewSet` nested under companies — list, create+upload-url, complete stub
 
 **Files:**
+- Modify: `backend/pyproject.toml` (add `drf-nested-routers`)
 - Create: `backend/collateral_ai/documents/api/__init__.py` (empty)
 - Create: `backend/collateral_ai/documents/api/serializers.py`
 - Create: `backend/collateral_ai/documents/api/views.py`
@@ -339,11 +345,28 @@ git commit -m "feat(documents): add GCS object-path helper reusing companies sig
 
 **Interfaces:**
 - Consumes: `documents.gcs` (`is_configured`, `build_document_object_path`, `signed_upload_url`), `Document`, `DocumentStatus`.
-- Produces routes: `GET /api/documents/?company={id}`, `POST /api/documents/`, `GET /api/documents/{id}/`, `POST /api/documents/{id}/complete/`.
-  - `POST /api/documents/` request `{company:int, file_name:str, content_type:str}` → **201** `{...Document fields, upload_url:str}`; **400** on non-PDF; **503** when GCS unconfigured.
-  - `POST /api/documents/{id}/complete/` → **202** `{...Document fields}` (status becomes `processing`).
+- Produces routes (nested; company from URL kwarg `company_pk`):
+  `GET /api/companies/{company_pk}/documents/`, `POST /api/companies/{company_pk}/documents/`,
+  `GET /api/companies/{company_pk}/documents/{id}/`, `POST /api/companies/{company_pk}/documents/{id}/complete/`.
+  - `POST …/documents/` request `{file_name:str, content_type:str}` → **201** `{...Document fields, upload_url:str}`; **400** on non-PDF; **503** when GCS unconfigured. Company is taken from `company_pk`.
+  - `POST …/documents/{id}/complete/` → **202** `{...Document fields}` (status becomes `processing`).
 
-- [ ] **Step 1: Write the failing API tests**
+- [ ] **Step 1: Add the `drf-nested-routers` dependency and rebuild**
+
+In `backend/pyproject.toml`, add to the `dependencies` array (keep alphabetical-ish with the others):
+
+```toml
+  "drf-nested-routers==0.94.2",
+```
+
+Then update the lockfile and rebuild the image so the container has the package:
+
+Run: `docker compose -f docker-compose.local.yml run --rm django uv lock`
+Run: `just build django`
+Expected: build succeeds; `drf_nested_routers` importable in the container.
+(If `0.94.2` fails to resolve, use the latest `drf-nested-routers` from PyPI and re-run `uv lock`.)
+
+- [ ] **Step 2: Write the failing API tests**
 
 `backend/collateral_ai/documents/tests/api/test_views.py`:
 
@@ -372,15 +395,19 @@ def auth_client() -> APIClient:
     return client
 
 
+def docs_url(company_pk: int) -> str:
+    return f"/api/companies/{company_pk}/documents/"
+
+
 def test_list_requires_auth():
-    assert APIClient().get("/api/documents/").status_code == HTTPStatus.FORBIDDEN
+    assert APIClient().get("/api/companies/1/documents/").status_code == HTTPStatus.FORBIDDEN
 
 
 def test_list_is_scoped_to_company(auth_client):
     a, b = CompanyFactory(), CompanyFactory()
     DocumentFactory(company=a, file_name="a.pdf")
     DocumentFactory(company=b, file_name="b.pdf")
-    resp = auth_client.get(f"/api/documents/?company={a.pk}")
+    resp = auth_client.get(docs_url(a.pk))
     assert resp.status_code == HTTPStatus.OK
     names = [d["file_name"] for d in resp.json()]
     assert names == ["a.pdf"]
@@ -395,14 +422,15 @@ def test_create_reserves_pending_doc_and_returns_upload_url(auth_client):
         return_value="https://signed-put",
     ):
         resp = auth_client.post(
-            "/api/documents/",
-            {"company": company.pk, "file_name": "report.pdf", "content_type": "application/pdf"},
+            docs_url(company.pk),
+            {"file_name": "report.pdf", "content_type": "application/pdf"},
             format="json",
         )
     assert resp.status_code == HTTPStatus.CREATED
     body = resp.json()
     assert body["upload_url"] == "https://signed-put"
     assert body["status"] == DocumentStatus.PENDING
+    assert body["company"] == company.pk
     doc = Document.objects.get(pk=body["id"])
     assert doc.company_id == company.pk
     assert doc.storage_path.startswith(f"media/companies/{company.pk}/documents/{doc.pk}/")
@@ -414,8 +442,8 @@ def test_create_rejects_non_pdf(auth_client):
         "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
     ):
         resp = auth_client.post(
-            "/api/documents/",
-            {"company": company.pk, "file_name": "a.docx", "content_type": "application/msword"},
+            docs_url(company.pk),
+            {"file_name": "a.docx", "content_type": "application/msword"},
             format="json",
         )
     assert resp.status_code == HTTPStatus.BAD_REQUEST
@@ -428,8 +456,8 @@ def test_create_503_when_unconfigured(auth_client):
         "collateral_ai.documents.api.views.gcs.is_configured", return_value=False,
     ):
         resp = auth_client.post(
-            "/api/documents/",
-            {"company": company.pk, "file_name": "a.pdf", "content_type": "application/pdf"},
+            docs_url(company.pk),
+            {"file_name": "a.pdf", "content_type": "application/pdf"},
             format="json",
         )
     assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
@@ -437,7 +465,7 @@ def test_create_503_when_unconfigured(auth_client):
 
 def test_complete_marks_processing_and_returns_202(auth_client):
     doc = DocumentFactory(status=DocumentStatus.PENDING)
-    resp = auth_client.post(f"/api/documents/{doc.pk}/complete/")
+    resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
     assert resp.status_code == HTTPStatus.ACCEPTED
     assert resp.json()["status"] == DocumentStatus.PROCESSING
     doc.refresh_from_db()
@@ -446,19 +474,19 @@ def test_complete_marks_processing_and_returns_202(auth_client):
 
 def test_complete_retries_failed_doc(auth_client):
     doc = DocumentFactory(status=DocumentStatus.FAILED, error_message="boom")
-    resp = auth_client.post(f"/api/documents/{doc.pk}/complete/")
+    resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
     assert resp.status_code == HTTPStatus.ACCEPTED
     doc.refresh_from_db()
     assert doc.status == DocumentStatus.PROCESSING
     assert doc.error_message == ""
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [ ] **Step 3: Run the tests to verify they fail**
 
 Run: `just pytest collateral_ai/documents/tests/api/test_views.py`
 Expected: FAIL (404s / import errors — viewset and routes do not exist).
 
-- [ ] **Step 3: Implement the serializer**
+- [ ] **Step 4: Implement the serializer**
 
 `backend/collateral_ai/documents/api/serializers.py`:
 
@@ -484,8 +512,10 @@ class DocumentSerializer(serializers.ModelSerializer[Document]):
             "error_message",
             "created_at",
         ]
+        # `company` is set from the URL, never the request body.
         read_only_fields = [
             "id",
+            "company",
             "status",
             "page_count",
             "chunks_count",
@@ -496,7 +526,7 @@ class DocumentSerializer(serializers.ModelSerializer[Document]):
         ]
 ```
 
-- [ ] **Step 4: Implement the viewset**
+- [ ] **Step 5: Implement the viewset (company from `company_pk`)**
 
 `backend/collateral_ai/documents/api/views.py`:
 
@@ -532,17 +562,13 @@ class DocumentViewSet(
     queryset = Document.objects.all()
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        company = self.request.query_params.get("company")
-        if company:
-            qs = qs.filter(company_id=company)
-        return qs
+        # Nested under companies: company comes from the URL, always present.
+        return super().get_queryset().filter(company_id=self.kwargs["company_pk"])
 
     @extend_schema(
         request=inline_serializer(
             name="DocumentCreateRequest",
             fields={
-                "company": serializers.IntegerField(),
                 "file_name": serializers.CharField(),
                 "content_type": serializers.CharField(),
             },
@@ -571,21 +597,21 @@ class DocumentViewSet(
                 {"detail": "Document upload is not configured in this environment."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        company = request.data.get("company")
+        company_pk = self.kwargs["company_pk"]
         file_name = request.data.get("file_name")
         content_type = request.data.get("content_type")
-        if not company or not file_name or content_type not in ALLOWED_DOCUMENT_TYPES:
+        if not file_name or content_type not in ALLOWED_DOCUMENT_TYPES:
             return Response(
-                {"detail": "A company, file_name, and application/pdf content_type are required."},
+                {"detail": "A file_name and an application/pdf content_type are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         doc = Document.objects.create(
-            company_id=company,
+            company_id=company_pk,
             file_name=file_name,
             content_type=content_type,
             status=DocumentStatus.PENDING,
         )
-        object_path = gcs.build_document_object_path(int(company), doc.pk, file_name)
+        object_path = gcs.build_document_object_path(int(company_pk), doc.pk, file_name)
         doc.storage_path = object_path
         doc.save(update_fields=["storage_path", "updated_at"])
         upload_url = gcs.signed_upload_url(object_path, content_type)
@@ -597,7 +623,7 @@ class DocumentViewSet(
         responses={202: OpenApiResponse(response=DocumentSerializer)},
     )
     @action(detail=True, methods=["post"])
-    def complete(self, request, pk=None):
+    def complete(self, request, pk=None, company_pk=None):
         doc = self.get_object()
         # Phase 1: the worker is a stub. Flip to processing so the UI shows a pill;
         # Phase 2 wires this to the Cloud Run Job / inline worker.
@@ -607,37 +633,54 @@ class DocumentViewSet(
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
 ```
 
-- [ ] **Step 5: Register the route**
+- [ ] **Step 6: Register the nested route**
 
-In `backend/config/api_router.py`, add the import and registration:
+In `backend/config/api_router.py`, add the imports and the nested router. Full expected file:
 
 ```python
+from django.conf import settings
+from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
+from rest_framework_nested import routers as nested_routers
+
+from collateral_ai.companies.api.views import CompanyViewSet
 from collateral_ai.documents.api.views import DocumentViewSet
+from collateral_ai.users.api.views import UserViewSet
+
+router = DefaultRouter() if settings.DEBUG else SimpleRouter()
+
+router.register("users", UserViewSet)
+router.register("companies", CompanyViewSet, basename="company")
+
+# Documents are a sub-resource of a company: /api/companies/{company_pk}/documents/
+companies_router = nested_routers.NestedSimpleRouter(router, "companies", lookup="company")
+companies_router.register("documents", DocumentViewSet, basename="company-documents")
+
+app_name = "api"
+urlpatterns = router.urls + companies_router.urls
 ```
 
-and, alongside the existing registrations:
+> If the company-CRUD session has already edited this file at integration time, keep their
+> `router.register("companies", …)` line and only add the two `companies_router` lines +
+> the `nested_routers` import + `+ companies_router.urls`.
 
-```python
-router.register("documents", DocumentViewSet, basename="document")
-```
-
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `just pytest collateral_ai/documents/tests/api/test_views.py`
 Expected: PASS (7 tests).
 
-- [ ] **Step 7: Run the whole documents suite + a quick schema check**
+- [ ] **Step 8: Run the whole documents suite + a quick schema check**
 
 Run: `just pytest collateral_ai/documents`
 Expected: PASS (all documents tests).
 Run: `just manage spectacular --file /dev/null`
-Expected: exits 0 (schema generates without errors for the new endpoints).
+Expected: exits 0 (schema generates the nested `/api/companies/{company_pk}/documents/` paths without errors).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add backend/collateral_ai/documents/api backend/collateral_ai/documents/tests/api backend/config/api_router.py
-git commit -m "feat(documents): DocumentViewSet — list, create+upload-url, complete stub"
+git add backend/pyproject.toml backend/uv.lock backend/collateral_ai/documents/api backend/collateral_ai/documents/tests/api backend/config/api_router.py
+git commit -m "feat(documents): nested DocumentViewSet under companies (list, upload-url, complete stub)"
 ```
 
 ---
@@ -657,14 +700,15 @@ git commit -m "feat(documents): DocumentViewSet — list, create+upload-url, com
   - `type Document = components["schemas"]["Document"]`.
   - `useDocuments(companyId: number)` — TanStack Query; `refetchInterval` polls every 3000 ms while any doc `status === "processing"`, else `false`.
   - `uploadDocument(args: { companyId: number; file: File; onProgress: (pct: number) => void }): Promise<Document>` — POST create → `putWithProgress` → POST complete; returns the completed document.
-  - `useCompleteDocument()` — mutation calling `POST /api/documents/{id}/complete/` (used by the retry button).
+  - `useCompleteDocument()` — mutation `{ id, companyId }` calling `POST /api/companies/{company_pk}/documents/{id}/complete/` (used by the retry button).
 
 - [ ] **Step 1: Regenerate the typed schema**
 
 Ensure the local stack is up (`just up`) so `http://localhost:8000/api/schema/` includes the new endpoints, then:
 
 Run: `just gen-api`
-Expected: `frontend/src/lib/api/schema.d.ts` now contains `/api/documents/` paths and a `Document` schema.
+Expected: `frontend/src/lib/api/schema.d.ts` now contains `/api/companies/{company_pk}/documents/` paths
+and a `Document` schema. Confirm the exact path-param name emitted (`company_pk`) and use it verbatim below.
 
 - [ ] **Step 2: Implement the XHR upload helper (no test — thin I/O wrapper)**
 
@@ -729,13 +773,16 @@ describe("uploadDocument", () => {
 
     const doc = await uploadDocument({ companyId: 3, file: pdf(), onProgress });
 
-    expect(post).toHaveBeenNthCalledWith(1, "/api/documents/", {
-      body: { company: 3, file_name: "report.pdf", content_type: "application/pdf" },
+    expect(post).toHaveBeenNthCalledWith(1, "/api/companies/{company_pk}/documents/", {
+      params: { path: { company_pk: 3 } },
+      body: { file_name: "report.pdf", content_type: "application/pdf" },
     });
     expect(put).toHaveBeenCalledWith("https://gcs/put", expect.any(File), onProgress);
-    expect(post).toHaveBeenNthCalledWith(2, "/api/documents/{id}/complete/", {
-      params: { path: { id: 7 } },
-    });
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      "/api/companies/{company_pk}/documents/{id}/complete/",
+      { params: { path: { company_pk: 3, id: 7 } } },
+    );
     expect(doc.status).toBe("processing");
   });
 
@@ -773,8 +820,8 @@ export function useDocuments(companyId: number) {
   return useQuery({
     queryKey: ["documents", companyId],
     queryFn: async () => {
-      const { data, error } = await api.GET("/api/documents/", {
-        params: { query: { company: companyId } },
+      const { data, error } = await api.GET("/api/companies/{company_pk}/documents/", {
+        params: { path: { company_pk: companyId } },
       });
       if (error) throw error;
       return data;
@@ -793,16 +840,17 @@ export async function uploadDocument({
   file: File;
   onProgress: (pct: number) => void;
 }): Promise<Document> {
-  const created = await api.POST("/api/documents/", {
-    body: { company: companyId, file_name: file.name, content_type: file.type },
+  const created = await api.POST("/api/companies/{company_pk}/documents/", {
+    params: { path: { company_pk: companyId } },
+    body: { file_name: file.name, content_type: file.type },
   });
   const createStatus = created.response?.status;
   if (created.error || !created.data) {
     throw new Error(createStatus === 503 ? "upload_not_configured" : "upload_failed");
   }
   await putWithProgress(created.data.upload_url, file, onProgress);
-  const done = await api.POST("/api/documents/{id}/complete/", {
-    params: { path: { id: created.data.id } },
+  const done = await api.POST("/api/companies/{company_pk}/documents/{id}/complete/", {
+    params: { path: { company_pk: companyId, id: created.data.id } },
   });
   if (done.error || !done.data) throw new Error("complete_failed");
   return done.data as Document;
@@ -811,15 +859,16 @@ export async function uploadDocument({
 export function useCompleteDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number) => {
-      const { data, error } = await api.POST("/api/documents/{id}/complete/", {
-        params: { path: { id } },
-      });
+    mutationFn: async ({ id, companyId }: { id: number; companyId: number }) => {
+      const { data, error } = await api.POST(
+        "/api/companies/{company_pk}/documents/{id}/complete/",
+        { params: { path: { company_pk: companyId, id } } },
+      );
       if (error || !data) throw new Error("complete_failed");
       return data as Document;
     },
-    onSuccess: (doc) =>
-      qc.invalidateQueries({ queryKey: ["documents", doc.company] }),
+    onSuccess: (_data, { companyId }) =>
+      qc.invalidateQueries({ queryKey: ["documents", companyId] }),
   });
 }
 ```
@@ -1003,7 +1052,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
                       {d.status === "failed" && (
                         <button
                           type="button"
-                          onClick={() => retry.mutate(d.id)}
+                          onClick={() => retry.mutate({ id: d.id, companyId })}
                           className="flex items-center gap-1 text-[12px] text-brand hover:underline"
                         >
                           <ArrowClockwise size={13} /> Retry
@@ -1104,7 +1153,7 @@ with no extra code. Extended-image GCS cleanup is added in Phase 2.
 - Modify: `frontend/src/components/documents-tab.tsx` (add per-row delete + confirm)
 
 **Interfaces:**
-- Produces: `gcs.delete_object(object_path: str) -> None` (best-effort). `DELETE /api/documents/{id}/` → **204**. `useDeleteDocument()` mutation taking `{ id, companyId }`.
+- Produces: `gcs.delete_object(object_path: str) -> None` (best-effort). `DELETE /api/companies/{company_pk}/documents/{id}/` → **204**. `deleteDocument(companyId, id)` + `useDeleteDocument()` mutation taking `{ id, companyId }`.
 
 - [ ] **Step 1: Write the failing backend delete tests**
 
@@ -1118,7 +1167,7 @@ def test_delete_removes_row_and_cleans_gcs(auth_client):
     ), mock.patch(
         "collateral_ai.documents.api.views.gcs.delete_object",
     ) as delete_object:
-        resp = auth_client.delete(f"/api/documents/{doc.pk}/")
+        resp = auth_client.delete(f"{docs_url(doc.company_id)}{doc.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT
     assert not Document.objects.filter(pk=doc.pk).exists()
     delete_object.assert_called_once_with("media/companies/1/documents/1/doc.pdf")
@@ -1131,7 +1180,7 @@ def test_delete_skips_gcs_when_unconfigured(auth_client):
     ), mock.patch(
         "collateral_ai.documents.api.views.gcs.delete_object",
     ) as delete_object:
-        resp = auth_client.delete(f"/api/documents/{doc.pk}/")
+        resp = auth_client.delete(f"{docs_url(doc.company_id)}{doc.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT
     delete_object.assert_not_called()
 ```
@@ -1196,37 +1245,23 @@ git commit -m "feat(documents): DELETE endpoint with best-effort GCS cleanup (ch
 - [ ] **Step 7: Regenerate the schema for the DELETE path**
 
 With the local stack up, run: `just gen-api`
-Expected: `schema.d.ts` now types `delete` on `/api/documents/{id}/`.
+Expected: `schema.d.ts` now types `delete` on `/api/companies/{company_pk}/documents/{id}/`.
 
 - [ ] **Step 8: Write the failing delete-hook test**
 
-Add to `frontend/src/lib/api/documents.test.ts`:
-
-```ts
-import { useDeleteDocument } from "./documents";
-
-describe("useDeleteDocument", () => {
-  it("issues a DELETE for the given id", async () => {
-    const del = vi.spyOn(api, "DELETE").mockResolvedValue({ data: undefined, error: undefined } as never);
-    const { mutationFn } = useDeleteDocument.__test__({ id: 7, companyId: 3 });
-    await mutationFn();
-    expect(del).toHaveBeenCalledWith("/api/documents/{id}/", { params: { path: { id: 7 } } });
-  });
-});
-```
-
-> The hook is a TanStack `useMutation`; to keep the test hook-free, factor the request into a
-> plain exported `deleteDocument(id: number)` and test that directly instead of the mutation
-> wrapper. Prefer this — replace the snippet above with:
+The request is factored into a plain exported `deleteDocument(companyId, id)` so the test needs no
+React. Add to `frontend/src/lib/api/documents.test.ts`:
 
 ```ts
 import { deleteDocument } from "./documents";
 
 describe("deleteDocument", () => {
-  it("issues a DELETE for the given id", async () => {
+  it("issues a nested DELETE for the given company + id", async () => {
     const del = vi.spyOn(api, "DELETE").mockResolvedValue({ data: undefined, error: undefined } as never);
-    await deleteDocument(7);
-    expect(del).toHaveBeenCalledWith("/api/documents/{id}/", { params: { path: { id: 7 } } });
+    await deleteDocument(3, 7);
+    expect(del).toHaveBeenCalledWith("/api/companies/{company_pk}/documents/{id}/", {
+      params: { path: { company_pk: 3, id: 7 } },
+    });
   });
 });
 ```
@@ -1241,9 +1276,9 @@ Expected: FAIL (`deleteDocument` not exported).
 Add to `frontend/src/lib/api/documents.ts`:
 
 ```ts
-export async function deleteDocument(id: number): Promise<void> {
-  const { error } = await api.DELETE("/api/documents/{id}/", {
-    params: { path: { id } },
+export async function deleteDocument(companyId: number, id: number): Promise<void> {
+  const { error } = await api.DELETE("/api/companies/{company_pk}/documents/{id}/", {
+    params: { path: { company_pk: companyId, id } },
   });
   if (error) throw new Error("delete_failed");
 }
@@ -1251,7 +1286,8 @@ export async function deleteDocument(id: number): Promise<void> {
 export function useDeleteDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }: { id: number; companyId: number }) => deleteDocument(id),
+    mutationFn: ({ id, companyId }: { id: number; companyId: number }) =>
+      deleteDocument(companyId, id),
     onSuccess: (_data, { companyId }) =>
       qc.invalidateQueries({ queryKey: ["documents", companyId] }),
   });
