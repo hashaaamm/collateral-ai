@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { HomePage } from "@/routes/home";
 import { AboutPage } from "@/routes/about";
+import { DashboardPage } from "@/routes/dashboard";
 
 /**
  * TanStack Router route tree. The root route renders the shared shell (nav + a
@@ -48,7 +49,13 @@ const aboutRoute = createRoute({
   component: AboutPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, aboutRoute]);
+const dashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/dashboard",
+  component: DashboardPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, aboutRoute, dashboardRoute]);
 
 export const router = createRouter({ routeTree });
 
