@@ -93,16 +93,16 @@ def test_create_503_when_unconfigured(auth_client):
 def test_complete_triggers_processing_and_returns_202(auth_client):
     doc = DocumentFactory(status=DocumentStatus.PENDING)
     with mock.patch(
-        "collateral_ai.documents.api.views.call_command",
-    ) as call_command:
+        "collateral_ai.documents.api.views.trigger_processing",
+    ) as trigger:
         resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
     assert resp.status_code == HTTPStatus.ACCEPTED
-    call_command.assert_called_once_with("process_document", document_id=doc.pk)
+    trigger.assert_called_once_with(mock.ANY)
 
 
 def test_complete_retries_failed_doc(auth_client):
     doc = DocumentFactory(status=DocumentStatus.FAILED, error_message="boom")
-    with mock.patch("collateral_ai.documents.api.views.call_command"):
+    with mock.patch("collateral_ai.documents.api.views.trigger_processing"):
         resp = auth_client.post(f"{docs_url(doc.company_id)}{doc.pk}/complete/")
     assert resp.status_code == HTTPStatus.ACCEPTED
     doc.refresh_from_db()

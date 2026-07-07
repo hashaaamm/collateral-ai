@@ -330,3 +330,6 @@ EMBEDDING_BATCH_SIZE = env.int("EMBEDDING_BATCH_SIZE", default=64)
 DOCUMENT_CHUNK_MAX_WORDS = env.int("DOCUMENT_CHUNK_MAX_WORDS", default=300)
 DOCUMENT_CHUNK_OVERLAP_WORDS = env.int("DOCUMENT_CHUNK_OVERLAP_WORDS", default=50)
 DOCUMENT_CHUNKING_VERSION = env("DOCUMENT_CHUNKING_VERSION", default="v1")
+# When set (prod), `complete` executes this Cloud Run Job instead of running the worker inline.
+DOCUMENT_PROCESSOR_JOB = env("DOCUMENT_PROCESSOR_JOB", default="")
+DOCUMENT_PROCESSOR_REGION = env("DOCUMENT_PROCESSOR_REGION", default="us-central1")

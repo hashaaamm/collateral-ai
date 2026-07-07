@@ -1,4 +1,3 @@
-from django.core.management import call_command
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import inline_serializer
@@ -15,6 +14,7 @@ from rest_framework.viewsets import GenericViewSet
 from collateral_ai.documents import gcs
 from collateral_ai.documents.models import Document
 from collateral_ai.documents.statuses import DocumentStatus
+from collateral_ai.documents.worker_trigger import trigger_processing
 
 from .serializers import DocumentSerializer
 
@@ -110,10 +110,9 @@ class DocumentViewSet(
         doc.status = DocumentStatus.PROCESSING
         doc.error_message = ""
         doc.save(update_fields=["status", "error_message", "updated_at"])
-        # Phase 2a: process inline. Phase 2b routes this to a Cloud Run Job in prod.
         try:
-            call_command("process_document", document_id=doc.pk)
-        except Exception:  # noqa: BLE001 — pipeline marks the row failed; report 202 either way
+            trigger_processing(doc)
+        except Exception:  # noqa: BLE001 — worker marks the row failed; report 202 either way
             pass
         doc.refresh_from_db()
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
