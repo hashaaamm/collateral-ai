@@ -1,3 +1,5 @@
+import { PlaceholderPage } from "@/components/placeholder-page";
+
 export function DashboardPage() {
-  return <div>Dashboard</div>;
+  return <PlaceholderPage title="Dashboard" />;
 }

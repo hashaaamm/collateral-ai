@@ -8,6 +8,11 @@ import {
 import { HomePage } from "@/routes/home";
 import { AboutPage } from "@/routes/about";
 import { DashboardPage } from "@/routes/dashboard";
+import { LoginPage } from "@/routes/login";
+import { CompaniesPage } from "@/routes/companies";
+import { CreatePage } from "@/routes/create";
+import { MaterialsPage } from "@/routes/materials";
+import { TemplatesPage } from "@/routes/templates";
 
 /**
  * TanStack Router route tree. The root route renders the shared shell (nav + a
@@ -55,7 +60,46 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, aboutRoute, dashboardRoute]);
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: LoginPage,
+});
+
+const companiesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/companies",
+  component: CompaniesPage,
+});
+
+const createRoute2 = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/create",
+  component: CreatePage,
+});
+
+const materialsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/materials",
+  component: MaterialsPage,
+});
+
+const templatesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/templates",
+  component: TemplatesPage,
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  aboutRoute,
+  dashboardRoute,
+  loginRoute,
+  companiesRoute,
+  createRoute2,
+  materialsRoute,
+  templatesRoute,
+]);
 
 export const router = createRouter({ routeTree });
 
