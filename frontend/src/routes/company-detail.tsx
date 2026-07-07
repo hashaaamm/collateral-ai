@@ -1,8 +1,19 @@
-import { Link, useParams } from "@tanstack/react-router";
-import { CaretRight, Globe } from "@phosphor-icons/react";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { CaretRight, Globe, PencilSimple, Trash } from "@phosphor-icons/react";
 
 import { CompanyLogo } from "@/components/company-logo";
-import { useCompany } from "@/lib/api/companies";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useCompany, useDeleteCompany } from "@/lib/api/companies";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -18,6 +29,8 @@ function Field({ label, value }: { label: string; value: string }) {
 export function CompanyDetailPage() {
   const { companyId } = useParams({ from: "/app/companies/$companyId" });
   const { data: company, isLoading, isError } = useCompany(Number(companyId));
+  const navigate = useNavigate();
+  const del = useDeleteCompany();
 
   if (isLoading) {
     return <div className="mx-auto max-w-[1080px] px-10 pt-8 text-sm text-mute">Loading…</div>;
@@ -65,6 +78,40 @@ export function CompanyDetailPage() {
               </a>
             )}
           </div>
+        </div>
+        <div className="ml-auto flex items-center gap-[9px]">
+          <Link
+            to="/companies/$companyId/edit"
+            params={{ companyId: String(company.id) }}
+            className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-body hover:bg-subtle"
+          >
+            <PencilSimple size={15} />
+            Edit
+          </Link>
+          <AlertDialog>
+            <AlertDialogTrigger className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-destructive hover:bg-subtle">
+              <Trash size={15} />
+              Delete
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {company.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently removes the company and its logo. This can't be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    del.mutate(company.id, { onSuccess: () => navigate({ to: "/companies" }) })
+                  }
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
