@@ -12,8 +12,8 @@ extracts text/tables/images, chunks the content, embeds it with Gemini (via Vert
 and stores the chunks in Postgres + pgvector. The stored chunks become the grounding
 source for the later marketing-material generation feature (out of scope here).
 
-This is delivered in three shippable phases so value lands incrementally and the branch
-stays mergeable at each step.
+This is delivered in two phases — an upload surface (no AI) then the processing worker — so
+the branch stays mergeable and Phase 1 ships on its own.
 
 ### Goals
 - Company-scoped document upload with a real progress bar (bytes go straight to GCS).
@@ -227,16 +227,20 @@ currently `postgres:16`) to a pgvector-enabled base (e.g. `pgvector/pgvector:pg1
 
 ## Phasing (implementation sequence)
 
-1. **Phase 1 — UI + API scaffold (no AI).**
+Two phases, matching the product framing ("complete returns okay for now" → then wire the worker).
+
+1. **Phase 1 — Upload surface (no AI). Shippable on its own.**
    `documents` app + `Document` model/migration + `DocumentViewSet`
    (list, create+upload-url, `complete` **stub** returns `202`). Frontend: Documents tab, dropzone,
-   table, XHR progress bar, polling, `StatusPill`, `documents.ts` hooks, schema regen. *Shippable.*
-2. **Phase 2 — Worker wiring + status lifecycle.**
-   `process_document` command skeleton + `DocumentStatus` transitions;
-   `complete` wired to Cloud Run Job (prod) / inline (local); Pulumi Job + IAM + `aiplatform` API.
-3. **Phase 3 — Real processing.**
-   `DocumentChunk` model + pgvector extension migration; extraction (text+tables+images) →
-   chunking → Vertex embeddings → chunk persistence + count/status updates; local pgvector image.
+   table, XHR progress bar, polling, `StatusPill`, `documents.ts` hooks, schema regen.
+   End state: a user can upload PDFs to a company and see them listed; nothing is processed yet.
+2. **Phase 2 — Processing (worker + AI + infra).**
+   `process_document` command + `DocumentStatus` transitions; `DocumentChunk` model +
+   **pgvector extension migration** + **local pgvector image swap**
+   (`postgres:16` → `pgvector/pgvector:pg16` in `compose/production/postgres/Dockerfile`);
+   extraction (text+tables+images) → chunking → Vertex embeddings → chunk persistence + count/status
+   updates; `complete` wired to Cloud Run Job (prod) / inline (local); Pulumi Job + IAM +
+   `aiplatform` API.
 
 ## Testing Strategy
 
