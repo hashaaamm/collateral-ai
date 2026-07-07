@@ -147,3 +147,17 @@ def test_delete_skips_gcs_when_unconfigured(auth_client):
         resp = auth_client.delete(f"{docs_url(doc.company_id)}{doc.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT
     delete_object.assert_not_called()
+
+
+def test_create_rejects_overlong_file_name(auth_client):
+    company = CompanyFactory()
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
+    ):
+        resp = auth_client.post(
+            docs_url(company.pk),
+            {"file_name": "a" * 256 + ".pdf", "content_type": "application/pdf"},
+            format="json",
+        )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert not Document.objects.exists()

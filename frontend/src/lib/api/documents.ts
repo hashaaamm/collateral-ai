@@ -42,7 +42,7 @@ export async function uploadDocument({
     params: { path: { company_pk: companyId, id: created.data.id } },
   });
   if (done.error || !done.data) throw new Error("complete_failed");
-  return done.data as Document;
+  return done.data;
 }
 
 export async function deleteDocument(companyId: number, id: number): Promise<void> {
@@ -71,7 +71,7 @@ export function useCompleteDocument() {
         { params: { path: { company_pk: companyId, id } } },
       );
       if (error || !data) throw new Error("complete_failed");
-      return data as Document;
+      return data;
     },
     onSuccess: (_data, { companyId }) =>
       qc.invalidateQueries({ queryKey: ["documents", companyId] }),

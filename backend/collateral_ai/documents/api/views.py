@@ -18,6 +18,7 @@ from collateral_ai.documents.statuses import DocumentStatus
 from .serializers import DocumentSerializer
 
 ALLOWED_DOCUMENT_TYPES = {"application/pdf"}
+FILE_NAME_MAX_LENGTH = 255  # matches Document.file_name max_length
 
 
 class DocumentViewSet(
@@ -69,9 +70,18 @@ class DocumentViewSet(
         company_pk = int(self.kwargs["company_pk"])
         file_name = request.data.get("file_name")
         content_type = request.data.get("content_type")
-        if not file_name or content_type not in ALLOWED_DOCUMENT_TYPES:
+        if (
+            not file_name
+            or len(file_name) > FILE_NAME_MAX_LENGTH
+            or content_type not in ALLOWED_DOCUMENT_TYPES
+        ):
             return Response(
-                {"detail": "A file_name and an application/pdf content_type are required."},
+                {
+                    "detail": (
+                        "A file_name (<= 255 chars) and an application/pdf "
+                        "content_type are required."
+                    ),
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         doc = Document.objects.create(
@@ -80,6 +90,8 @@ class DocumentViewSet(
             content_type=content_type,
             status=DocumentStatus.PENDING,
         )
+        # ATOMIC_REQUESTS wraps the whole request in a transaction, so if signing raises
+        # below, this row is rolled back — no orphan PENDING row is left behind.
         object_path = gcs.build_document_object_path(company_pk, doc.pk, file_name)
         doc.storage_path = object_path
         doc.save(update_fields=["storage_path", "updated_at"])

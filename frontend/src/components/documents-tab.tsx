@@ -121,12 +121,13 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
                       )}
                       <button
                         type="button"
+                        disabled={del.isPending}
                         onClick={() => {
                           if (window.confirm(`Delete "${d.file_name}"? This can't be undone.`)) {
                             del.mutate({ id: d.id, companyId });
                           }
                         }}
-                        className="flex items-center gap-1 text-[12px] text-mute hover:text-destructive"
+                        className="flex items-center gap-1 text-[12px] text-mute hover:text-destructive disabled:opacity-50"
                         aria-label={`Delete ${d.file_name}`}
                       >
                         <Trash size={14} />
