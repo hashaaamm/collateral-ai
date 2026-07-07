@@ -1145,7 +1145,7 @@ pgvector embeddings) cascade away via the FK — so this also removes vectors on
 with no extra code. Extended-image GCS cleanup is added in Phase 2.
 
 **Files:**
-- Modify: `backend/collateral_ai/documents/gcs.py` (add `delete_object`)
+- Modify: `backend/collateral_ai/documents/gcs.py` (re-export `delete_object` from `companies.gcs`)
 - Modify: `backend/collateral_ai/documents/api/views.py` (add `DestroyModelMixin` + `perform_destroy`)
 - Modify: `backend/collateral_ai/documents/tests/api/test_views.py` (add delete tests)
 - Modify: `frontend/src/lib/api/documents.ts` (add `useDeleteDocument`)
@@ -1190,28 +1190,20 @@ def test_delete_skips_gcs_when_unconfigured(auth_client):
 Run: `just pytest collateral_ai/documents/tests/api/test_views.py -k delete`
 Expected: FAIL (405 Method Not Allowed — no `DestroyModelMixin` yet).
 
-- [ ] **Step 3: Add the GCS delete helper**
+- [ ] **Step 3: Re-export the GCS delete helper**
 
-Append to `backend/collateral_ai/documents/gcs.py`:
+`companies.gcs` already provides a best-effort `delete_object` (added when the companies
+search+edit+delete work merged to main). Re-export it from the documents module so the view
+depends only on `documents.gcs`. Add to `backend/collateral_ai/documents/gcs.py` (next to the
+existing `is_configured` / `signed_upload_url` re-exports):
 
 ```python
-import logging
-
-from collateral_ai.companies.gcs import _bucket
-
-logger = logging.getLogger(__name__)
-
-
-def delete_object(object_path: str) -> None:
-    """Best-effort delete of a stored object; never raises."""
-    try:
-        _bucket().blob(object_path).delete()
-    except Exception:  # noqa: BLE001 — cleanup must not block the row delete
-        logger.warning("Failed to delete GCS object %s", object_path, exc_info=True)
+from collateral_ai.companies.gcs import delete_object  # noqa: F401  (re-exported)
 ```
 
-> Self-contained on `main` (uses `companies.gcs._bucket`, which exists there). The company-CRUD
-> branch adds its own `companies.gcs.delete_object`; there is no collision with this one.
+Verify it exists first: `grep -n "def delete_object" backend/collateral_ai/companies/gcs.py`
+(should show a best-effort `delete_object(object_path)` that never raises). If for any reason it
+is absent, define one here instead using `from collateral_ai.companies.gcs import _bucket`.
 
 - [ ] **Step 4: Add destroy to the viewset**
 
