@@ -1089,6 +1089,227 @@ git commit -m "feat(documents): Documents tab — dropzone, table, progress bar,
 
 ---
 
+### Task 6: Delete a document (API + UI)
+
+Deletes the `Document` row and its stored PDF from GCS. `DocumentChunk` rows (and their
+pgvector embeddings) cascade away via the FK — so this also removes vectors once Phase 2 exists,
+with no extra code. Extended-image GCS cleanup is added in Phase 2.
+
+**Files:**
+- Modify: `backend/collateral_ai/documents/gcs.py` (add `delete_object`)
+- Modify: `backend/collateral_ai/documents/api/views.py` (add `DestroyModelMixin` + `perform_destroy`)
+- Modify: `backend/collateral_ai/documents/tests/api/test_views.py` (add delete tests)
+- Modify: `frontend/src/lib/api/documents.ts` (add `useDeleteDocument`)
+- Modify: `frontend/src/lib/api/documents.test.ts` (add delete hook test)
+- Modify: `frontend/src/components/documents-tab.tsx` (add per-row delete + confirm)
+
+**Interfaces:**
+- Produces: `gcs.delete_object(object_path: str) -> None` (best-effort). `DELETE /api/documents/{id}/` → **204**. `useDeleteDocument()` mutation taking `{ id, companyId }`.
+
+- [ ] **Step 1: Write the failing backend delete tests**
+
+Add to `backend/collateral_ai/documents/tests/api/test_views.py`:
+
+```python
+def test_delete_removes_row_and_cleans_gcs(auth_client):
+    doc = DocumentFactory(storage_path="media/companies/1/documents/1/doc.pdf")
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
+    ), mock.patch(
+        "collateral_ai.documents.api.views.gcs.delete_object",
+    ) as delete_object:
+        resp = auth_client.delete(f"/api/documents/{doc.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not Document.objects.filter(pk=doc.pk).exists()
+    delete_object.assert_called_once_with("media/companies/1/documents/1/doc.pdf")
+
+
+def test_delete_skips_gcs_when_unconfigured(auth_client):
+    doc = DocumentFactory()
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured", return_value=False,
+    ), mock.patch(
+        "collateral_ai.documents.api.views.gcs.delete_object",
+    ) as delete_object:
+        resp = auth_client.delete(f"/api/documents/{doc.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    delete_object.assert_not_called()
+```
+
+- [ ] **Step 2: Run to verify they fail**
+
+Run: `just pytest collateral_ai/documents/tests/api/test_views.py -k delete`
+Expected: FAIL (405 Method Not Allowed — no `DestroyModelMixin` yet).
+
+- [ ] **Step 3: Add the GCS delete helper**
+
+Append to `backend/collateral_ai/documents/gcs.py`:
+
+```python
+import logging
+
+from collateral_ai.companies.gcs import _bucket
+
+logger = logging.getLogger(__name__)
+
+
+def delete_object(object_path: str) -> None:
+    """Best-effort delete of a stored object; never raises."""
+    try:
+        _bucket().blob(object_path).delete()
+    except Exception:  # noqa: BLE001 — cleanup must not block the row delete
+        logger.warning("Failed to delete GCS object %s", object_path, exc_info=True)
+```
+
+> Self-contained on `main` (uses `companies.gcs._bucket`, which exists there). The company-CRUD
+> branch adds its own `companies.gcs.delete_object`; there is no collision with this one.
+
+- [ ] **Step 4: Add destroy to the viewset**
+
+In `backend/collateral_ai/documents/api/views.py`, import and add the mixin:
+
+```python
+from rest_framework.mixins import DestroyModelMixin
+```
+
+Add `DestroyModelMixin` to the `DocumentViewSet` base list (e.g. after `CreateModelMixin`), and add:
+
+```python
+    def perform_destroy(self, instance):
+        if instance.storage_path and gcs.is_configured():
+            gcs.delete_object(instance.storage_path)
+        instance.delete()
+```
+
+- [ ] **Step 5: Run the backend delete tests to verify they pass**
+
+Run: `just pytest collateral_ai/documents/tests/api/test_views.py -k delete`
+Expected: PASS (2 tests). Then run the full suite: `just pytest collateral_ai/documents` → PASS.
+
+- [ ] **Step 6: Commit the backend delete**
+
+```bash
+git add backend/collateral_ai/documents/gcs.py backend/collateral_ai/documents/api/views.py backend/collateral_ai/documents/tests/api/test_views.py
+git commit -m "feat(documents): DELETE endpoint with best-effort GCS cleanup (chunks cascade)"
+```
+
+- [ ] **Step 7: Regenerate the schema for the DELETE path**
+
+With the local stack up, run: `just gen-api`
+Expected: `schema.d.ts` now types `delete` on `/api/documents/{id}/`.
+
+- [ ] **Step 8: Write the failing delete-hook test**
+
+Add to `frontend/src/lib/api/documents.test.ts`:
+
+```ts
+import { useDeleteDocument } from "./documents";
+
+describe("useDeleteDocument", () => {
+  it("issues a DELETE for the given id", async () => {
+    const del = vi.spyOn(api, "DELETE").mockResolvedValue({ data: undefined, error: undefined } as never);
+    const { mutationFn } = useDeleteDocument.__test__({ id: 7, companyId: 3 });
+    await mutationFn();
+    expect(del).toHaveBeenCalledWith("/api/documents/{id}/", { params: { path: { id: 7 } } });
+  });
+});
+```
+
+> The hook is a TanStack `useMutation`; to keep the test hook-free, factor the request into a
+> plain exported `deleteDocument(id: number)` and test that directly instead of the mutation
+> wrapper. Prefer this — replace the snippet above with:
+
+```ts
+import { deleteDocument } from "./documents";
+
+describe("deleteDocument", () => {
+  it("issues a DELETE for the given id", async () => {
+    const del = vi.spyOn(api, "DELETE").mockResolvedValue({ data: undefined, error: undefined } as never);
+    await deleteDocument(7);
+    expect(del).toHaveBeenCalledWith("/api/documents/{id}/", { params: { path: { id: 7 } } });
+  });
+});
+```
+
+- [ ] **Step 9: Run to verify it fails**
+
+Run (from `frontend/`): `pnpm test documents`
+Expected: FAIL (`deleteDocument` not exported).
+
+- [ ] **Step 10: Implement `deleteDocument` + `useDeleteDocument`**
+
+Add to `frontend/src/lib/api/documents.ts`:
+
+```ts
+export async function deleteDocument(id: number): Promise<void> {
+  const { error } = await api.DELETE("/api/documents/{id}/", {
+    params: { path: { id } },
+  });
+  if (error) throw new Error("delete_failed");
+}
+
+export function useDeleteDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: number; companyId: number }) => deleteDocument(id),
+    onSuccess: (_data, { companyId }) =>
+      qc.invalidateQueries({ queryKey: ["documents", companyId] }),
+  });
+}
+```
+
+- [ ] **Step 11: Run to verify it passes**
+
+Run (from `frontend/`): `pnpm test documents`
+Expected: PASS.
+
+- [ ] **Step 12: Add the delete action to the table**
+
+In `frontend/src/components/documents-tab.tsx`, import the trash icon and hook:
+
+```tsx
+import { ArrowClockwise, FilePdf, Trash, UploadSimple } from "@phosphor-icons/react";
+import {
+  useCompleteDocument,
+  useDeleteDocument,
+  useDocuments,
+  uploadDocument,
+  type Document,
+} from "@/lib/api/documents";
+```
+
+Inside the component add `const del = useDeleteDocument();`, and in the status cell's action group
+add a delete button after the Retry button:
+
+```tsx
+<button
+  type="button"
+  onClick={() => {
+    if (window.confirm(`Delete “${d.file_name}”? This can’t be undone.`)) {
+      del.mutate({ id: d.id, companyId });
+    }
+  }}
+  className="flex items-center gap-1 text-[12px] text-mute hover:text-destructive"
+  aria-label={`Delete ${d.file_name}`}
+>
+  <Trash size={14} />
+</button>
+```
+
+- [ ] **Step 13: Typecheck, lint, test**
+
+Run (from `frontend/`): `pnpm typecheck && pnpm lint && pnpm test`
+Expected: all pass.
+
+- [ ] **Step 14: Commit the frontend delete**
+
+```bash
+git add frontend/src/lib/api/schema.d.ts frontend/src/lib/api/documents.ts frontend/src/lib/api/documents.test.ts frontend/src/components/documents-tab.tsx
+git commit -m "feat(documents): delete a document from the Documents tab (confirm + invalidate)"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage (Phase 1 scope):**
@@ -1098,7 +1319,9 @@ git commit -m "feat(documents): Documents tab — dropzone, table, progress bar,
 - Signed PUT direct to GCS, object-path convention → Tasks 2–3. ✓
 - Two-call upload flow with progress bar → Task 4 (`uploadDocument` + `putWithProgress`). ✓
 - Documents tab: dropzone, table (design columns), StatusPill, polling, retry affordance → Task 5. ✓
-- Schema regen + typed hooks → Task 4. ✓
+- Delete document: `DELETE` endpoint + best-effort GCS PDF cleanup (chunks/vectors cascade in
+  Phase 2) + row delete action with confirm → Task 6. ✓
+- Schema regen + typed hooks → Task 4 (+ Task 6 regen for the DELETE path). ✓
 - `DocumentChunk`, pgvector, worker, Vertex, Cloud Run Job, Pulumi → **Phase 2** (out of scope here, by design). ✓
 
 **Placeholder scan:** No TBD/TODO; every code step shows the code. The one prose step (Task 5 Step 3) edits an existing file whose full contents are already in the repo — it gives exact insertion points and code, and instructs keeping the existing profile markup verbatim inside the Overview branch.

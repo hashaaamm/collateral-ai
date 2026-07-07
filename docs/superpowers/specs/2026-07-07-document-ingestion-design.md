@@ -21,8 +21,12 @@ the branch stays mergeable and Phase 1 ships on its own.
 - A worker that turns a PDF into embedded, retrievable `DocumentChunk`s.
 - Keeps the existing companies/logo patterns and the Pulumi-owned infra model.
 
+### In scope (added)
+- **Document delete** — API + UI. Removes the `Document` row (chunks/vectors cascade),
+  the stored PDF, and (Phase 2) any extracted images from GCS. See "Document deletion" below.
+
 ### Non-goals (deferred — YAGNI)
-- Document delete/rename.
+- Document rename.
 - AI company summary / profile auto-fill (Overview tab content).
 - The retrieval endpoint and generation pipeline (chunks are stored *ready* for it).
 - Non-PDF file types.
@@ -119,6 +123,7 @@ on it.
 | `POST /api/documents/` | Body `{company, file_name, content_type}`. Validates `content_type == application/pdf`. Creates `Document(status="pending")`, builds a GCS object path, returns the serialized document **plus `upload_url`** (signed PUT, 15-min expiry). Returns **503** if GCS is not configured (mirrors logo upload). |
 | `GET /api/documents/{id}/` | Retrieve one document (used by polling if needed). |
 | `POST /api/documents/{id}/complete/` | Marks `processing`, triggers the worker, returns **202** + document. Idempotent-ish: re-callable on `failed` (retry) and no-op-safe on already-terminal states. |
+| `DELETE /api/documents/{id}/` | Deletes the document. `perform_destroy` removes the stored PDF (and, Phase 2, extracted images) from GCS via best-effort `gcs.delete_object`, then deletes the row — `DocumentChunk` rows (and their embeddings/vectors) go with it via `on_delete=CASCADE`. Returns **204**. |
 
 **Upload flow (two calls, mirrors logo pattern):**
 1. `POST /api/documents/` → `{ ...document, upload_url }` (row reserved as `pending`).
@@ -136,6 +141,19 @@ future concern, not MVP.
 - `signed_upload_url(object_path, content_type)` — reuse existing signer
 - `download_bytes(object_path)` / `upload_bytes(object_path, content, content_type)` — direct
   GCS access via ADC for the worker (runtime SA already has `storage.objectAdmin`).
+- `delete_object(object_path)` — best-effort delete, never raises (mirrors the companies pattern).
+
+### Document deletion
+
+`DocumentViewSet` includes `DestroyModelMixin`. `perform_destroy(instance)`:
+1. If GCS is configured, `gcs.delete_object(instance.storage_path)` (the PDF). In Phase 2, also
+   delete any extracted-image objects recorded on the chunks' metadata (or under the document's
+   `.../images/` prefix).
+2. `instance.delete()` — `DocumentChunk` rows and their pgvector embeddings cascade away.
+
+GCS cleanup is best-effort (never blocks the delete); an orphaned object is harmless and cheap.
+Frontend: a per-row **delete** action with a confirm step; on success invalidate the documents
+query so the row disappears.
 
 ## Worker — `process_document` management command
 
@@ -218,6 +236,7 @@ currently `postgres:16`) to a pgvector-enabled base (e.g. `pgvector/pgvector:pg1
 - **Documents table** matching the design columns: File name (+ "Uploaded … · relative time")
   · Type · Pages · Chunks · Tables · Images · **StatusPill**. `—` (muted) for null numeric cells.
   **Failed** rows expose a **Retry** action (re-calls `complete`) and can surface `error_message`.
+  Every row exposes a **Delete** action (confirm → `DELETE /api/documents/{id}/` → invalidate list).
 - **Polling:** while any listed doc is `processing`, TanStack Query `refetchInterval` (~3 s)
   refreshes the list until all settle, then stops.
 - **API layer:** new `lib/api/documents.ts` hooks (`useDocuments(companyId)`, `useCreateDocument`
@@ -231,9 +250,11 @@ Two phases, matching the product framing ("complete returns okay for now" → th
 
 1. **Phase 1 — Upload surface (no AI). Shippable on its own.**
    `documents` app + `Document` model/migration + `DocumentViewSet`
-   (list, create+upload-url, `complete` **stub** returns `202`). Frontend: Documents tab, dropzone,
-   table, XHR progress bar, polling, `StatusPill`, `documents.ts` hooks, schema regen.
-   End state: a user can upload PDFs to a company and see them listed; nothing is processed yet.
+   (list, create+upload-url, `complete` **stub** returns `202`, **delete** with GCS PDF cleanup).
+   Frontend: Documents tab, dropzone, table, XHR progress bar, polling, `StatusPill`, row
+   **delete** (confirm), `documents.ts` hooks, schema regen.
+   End state: a user can upload PDFs to a company, see them listed, and delete them; nothing is
+   processed yet.
 2. **Phase 2 — Processing (worker + AI + infra).**
    `process_document` command + `DocumentStatus` transitions; `DocumentChunk` model +
    **pgvector extension migration** + **local pgvector image swap**
@@ -246,7 +267,8 @@ Two phases, matching the product framing ("complete returns okay for now" → th
 
 - **Models/API:** factory-based tests (mirror `companies/tests/`): create+upload-url returns a
   signed URL and a `pending` doc; `complete` transitions status and triggers the (mocked) worker;
-  list is company-scoped; PDF-only validation; 503 when GCS unconfigured.
+  list is company-scoped; PDF-only validation; 503 when GCS unconfigured;
+  **delete** returns 204, removes the row, and calls `gcs.delete_object` (mocked) with the PDF path.
 - **Worker services:** unit-test chunking (deterministic), extraction (small fixture PDF),
   embedding service with a **mocked** Vertex client (assert model/dims/task_type/normalization),
   and `pipeline` end-to-end with mocked storage+embeddings against a fixture PDF (asserts chunk
