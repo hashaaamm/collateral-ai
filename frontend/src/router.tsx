@@ -122,8 +122,8 @@ const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
     dashboardRoute,
     companiesRoute,
-    companyDetailRoute,
     createCompanyRoute,
+    companyDetailRoute,
     createMaterialRoute,
     materialsRoute,
     templatesRoute,
