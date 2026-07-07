@@ -1,3 +1,6 @@
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import inline_serializer
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin
@@ -23,6 +26,22 @@ class CompanyViewSet(
     serializer_class = CompanySerializer
     queryset = Company.objects.all()
 
+    @extend_schema(
+        request=inline_serializer(
+            name="LogoUploadUrlRequest",
+            fields={
+                "filename": serializers.CharField(),
+                "content_type": serializers.CharField(),
+            },
+        ),
+        responses=inline_serializer(
+            name="LogoUploadUrl",
+            fields={
+                "upload_url": serializers.URLField(),
+                "object_path": serializers.CharField(),
+            },
+        ),
+    )
     @action(detail=False, methods=["post"], url_path="logo-upload-url")
     def logo_upload_url(self, request):
         if not gcs.is_configured():

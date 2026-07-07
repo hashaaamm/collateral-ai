@@ -160,6 +160,15 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        LogoUploadUrl: {
+            /** Format: uri */
+            upload_url: string;
+            object_path: string;
+        };
+        LogoUploadUrlRequest: {
+            filename: string;
+            content_type: string;
+        };
         PatchedUser: {
             /** Name of User */
             name?: string;
@@ -281,9 +290,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Company"];
-                "application/x-www-form-urlencoded": components["schemas"]["Company"];
-                "multipart/form-data": components["schemas"]["Company"];
+                "application/json": components["schemas"]["LogoUploadUrlRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LogoUploadUrlRequest"];
+                "multipart/form-data": components["schemas"]["LogoUploadUrlRequest"];
             };
         };
         responses: {
@@ -292,7 +301,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Company"];
+                    "application/json": components["schemas"]["LogoUploadUrl"];
                 };
             };
         };
