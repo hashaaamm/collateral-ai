@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+/* Handoff design tokens (namespaced so they don't collide with shadcn's
+   accent/secondary/muted/border/input token names). */
+@theme {
+  --font-sans: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+
+  --color-brand: #5b5bd6;
+  --color-brand-hover: #4f4fce;
+  --color-brand-soft: #eef0fe;   /* nav active bg */
+  --color-brand-tint: #eaeafb;   /* avatar tile bg */
+
+  --color-page: #f6f6f8;
+  --color-surface: #ffffff;
+  --color-subtle: #fbfbfc;       /* input fill */
+  --color-rail: #f7f7fb;         /* user card bg */
+
+  --color-hairline: #ececef;         /* card / sidebar border */
+  --color-hairline-soft: #eeeef4;    /* user card border */
+  --color-field: #e4e4e9;            /* input border */
+  --color-nav-hover: #f0f0f4;        /* nav item hover bg */
+
+  --color-ink: #1a1a1e;          /* primary text */
+  --color-body: #4a4a52;         /* form labels / body */
+  --color-subtext: #77777f;      /* secondary text */
+  --color-mute: #9a9aa5;         /* muted text / icons */
+  --color-faint: #a8a8b0;        /* captions */
+  --color-nav: #6b6b76;          /* inactive nav text */
+
+  --shadow-login: 0 12px 40px -12px rgba(20, 20, 40, 0.12);
+}
+
 /* Dark mode driven by a `.dark` class on an ancestor (e.g. <html class="dark">). */
 @custom-variant dark (&:is(.dark *));
 
@@ -79,6 +109,7 @@
     border-color: var(--border);
   }
   body {
+    font-family: var(--font-sans);
     background-color: var(--background);
     color: var(--foreground);
   }
