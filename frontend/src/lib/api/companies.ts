@@ -40,6 +40,10 @@ export function useCreateCompany() {
       logo?: string;
     }) => {
       const { data, error } = await api.POST("/api/companies/", {
+        // The generated schema reuses the full `Company` response entity (incl.
+        // readonly server-set fields) as the request body type since DRF's
+        // OpenAPI generator doesn't emit a separate writable request schema
+        // for this operation. Cast to the actual generated request-body type.
         body: body as components["schemas"]["Company"],
       });
       if (error || !data) throw new Error("create_failed");
@@ -54,13 +58,16 @@ export function useCreateCompany() {
  * return the stored object path. The file never passes through our backend.
  */
 export async function requestUploadAndPut(file: File): Promise<string> {
-  type Result = Awaited<ReturnType<typeof api.POST>>;
-  const result: Result = await api.POST("/api/companies/logo-upload-url/", {
+  const result = await api.POST("/api/companies/logo-upload-url/", {
     body: { filename: file.name, content_type: file.type },
-  } as never);
-  const { data, error, response } = result;
+  });
+  // Read `status` off the un-narrowed result first: this operation's schema
+  // declares no error response, so narrowing on `error`/`data` collapses the
+  // union to `never` (see the same pattern in auth.ts's useLogin).
+  const status = result.response?.status;
+  const { data, error } = result;
   if (error || !data) {
-    throw new Error((response as { status?: number } | undefined)?.status === 503 ? "upload_not_configured" : "upload_failed");
+    throw new Error(status === 503 ? "upload_not_configured" : "upload_failed");
   }
   const put = await fetch(data.upload_url, {
     method: "PUT",
