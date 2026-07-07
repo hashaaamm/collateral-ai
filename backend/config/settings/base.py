@@ -319,3 +319,14 @@ SPECTACULAR_SETTINGS = {
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# Document processing / embeddings
+# ------------------------------------------------------------------------------
+GOOGLE_CLOUD_PROJECT = env("GOOGLE_CLOUD_PROJECT", default="")
+VERTEX_LOCATION = env("VERTEX_LOCATION", default="us-central1")
+EMBEDDING_MODEL = env("EMBEDDING_MODEL", default="gemini-embedding-001")
+EMBEDDING_DIMENSIONS = env.int("EMBEDDING_DIMENSIONS", default=768)
+EMBEDDING_BATCH_SIZE = env.int("EMBEDDING_BATCH_SIZE", default=64)
+DOCUMENT_CHUNK_MAX_WORDS = env.int("DOCUMENT_CHUNK_MAX_WORDS", default=300)
+DOCUMENT_CHUNK_OVERLAP_WORDS = env.int("DOCUMENT_CHUNK_OVERLAP_WORDS", default=50)
+DOCUMENT_CHUNKING_VERSION = env("DOCUMENT_CHUNKING_VERSION", default="v1")
