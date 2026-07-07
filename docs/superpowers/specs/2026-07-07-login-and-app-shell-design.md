@@ -26,7 +26,16 @@ email-verification flow.
 
 React 19 + Vite, TanStack Router, TanStack Query, `openapi-fetch` typed client,
 Tailwind v4, shadcn (`button`, `card`), `react-hook-form` + `zod` (installed,
-currently unused). No new npm dependencies required.
+currently unused).
+
+New dependencies to add (per the handoff README's recommended stack):
+- `@phosphor-icons/react` — tree-shaken per-icon imports (replaces the prototype's
+  CDN icon web-font).
+- `@fontsource/hanken-grotesk` — self-hosted UI font (weights 400/500/600/700/800).
+- shadcn `input` component (via the shadcn CLI) for the login form fields.
+
+(`@fontsource/jetbrains-mono` and other shadcn primitives — Tabs, Dialog, Avatar —
+are deferred to the later data-heavy screens; not needed for login + shell.)
 
 ## Scope
 
@@ -88,7 +97,8 @@ active-link matching).
   `/api/auth-token/`. Reuse existing `useCurrentUser()` (`/api/users/me/`) for the
   sidebar user card.
 - `src/routes/login.tsx` — pixel-matched login screen. Form via `react-hook-form`
-  + `zod` (email format + non-empty password). Local state for the password
+  + `zod` (email format + non-empty password), using shadcn `Input` + `Button`
+  (themed to the tokens) for the fields/submit. Local state for the password
   eye-toggle and submit/loading/error.
 - `src/components/app-shell.tsx` — pixel-matched sidebar + `<Outlet/>`. Renders the
   logo + "MVP" badge, the "Workspace" nav list, and the bottom user card
@@ -98,8 +108,34 @@ active-link matching).
   `templates.tsx` — empty placeholder pages (title + "Coming soon").
 - `src/router.tsx` — restructured route tree (standalone vs app-shell vs existing
   top-nav) + the two guards.
-- `src/index.css` — add Hanken Grotesk (Google Fonts) + Phosphor icons, and the
-  purple `#5b5bd6` as a theme token, to match the handoff.
+- `src/index.css` — import `@fontsource/hanken-grotesk` weights, and adopt the
+  handoff README's `@theme` token palette (the subset the login + shell need now,
+  structured so the rest drops in later): `--font-sans`, `--color-accent` /
+  `--color-accent-hover` / `--color-accent-soft` / `--color-accent-tint`,
+  `--color-page`, `--color-surface`, `--color-rail`, `--color-border` /
+  `--color-border-soft`, `--color-input`, `--color-ink` / `--color-body` /
+  `--color-secondary` / `--color-muted` / `--color-faint`, and `--shadow-login`.
+  Set `font-sans` + `bg-page text-ink` on the app root.
+
+## Styling approach
+
+Tailwind-token-first, using shadcn selectively. Both compose cleanly because
+shadcn is itself Radix + Tailwind.
+
+1. **Token layer (foundation):** adopt the handoff README's `@theme` palette in
+   `index.css` (accent, surfaces, text ramp, shadows, font). Components reference
+   named tokens (`bg-accent`, `text-ink`, `border-border`, `shadow-login`) — no raw
+   hex in JSX.
+2. **Bespoke layouts via Tailwind:** the login card, 236px sidebar, nav items, and
+   user card are too custom to force through shadcn — build them with Tailwind
+   utilities driven by the tokens. Odd pixel values (`13.5px`, `9px 10px`) use
+   Tailwind arbitrary values where exactness matters.
+3. **shadcn primitives where they help:** `Button` + `Input` for the login form,
+   themed to the tokens. Richer shadcn primitives (Tabs/Card/Dialog/Avatar) are
+   deferred to the later data-heavy screens, not used for login + shell.
+
+The prototype's login "Authentication is mocked for the MVP…" info note is
+**omitted** — our auth is real, so the note would be inaccurate.
 
 ## Visual fidelity (pixel-match)
 
@@ -136,8 +172,11 @@ App shell:
   (`ph-sign-out`, `#9a9aa5`, hover `#5b5bd6`).
 - Main content area: `flex:1`, `overflow-y:auto`, background `#f6f6f8`.
 
-Fonts/icons: Hanken Grotesk (weights 400–800) via Google Fonts; Phosphor Icons
-(regular/bold/fill) via CDN CSS — matching the handoff's `<link>` tags.
+Fonts/icons: Hanken Grotesk via `@fontsource/hanken-grotesk`; Phosphor icons via
+`@phosphor-icons/react` (per-icon imports, `weight="regular|bold|fill"` to match
+each glyph). Icons needed for login + shell: `Stack` (fill), `EnvelopeSimple`,
+`LockSimple`, `Eye` / `EyeSlash`, `ArrowRight` (bold), `SquaresFour`, `Buildings`,
+`MagicWand`, `ListChecks`, `Layout`, `SignOut`, `Info`.
 
 ## Testing
 
