@@ -1,11 +1,14 @@
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import inline_serializer
+from rest_framework import filters
 from rest_framework import serializers
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin
+from rest_framework.mixins import DestroyModelMixin
 from rest_framework.mixins import ListModelMixin
 from rest_framework.mixins import RetrieveModelMixin
+from rest_framework.mixins import UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -21,10 +24,19 @@ class CompanyViewSet(
     RetrieveModelMixin,
     ListModelMixin,
     CreateModelMixin,
+    UpdateModelMixin,
+    DestroyModelMixin,
     GenericViewSet,
 ):
     serializer_class = CompanySerializer
     queryset = Company.objects.all()
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name"]
+
+    def perform_destroy(self, instance):
+        if instance.logo and gcs.is_configured():
+            gcs.delete_object(instance.logo)
+        instance.delete()
 
     @extend_schema(
         request=inline_serializer(

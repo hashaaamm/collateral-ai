@@ -44,12 +44,12 @@ export interface paths {
             cookie?: never;
         };
         get: operations["companies_retrieve"];
-        put?: never;
+        put: operations["companies_update"];
         post?: never;
-        delete?: never;
+        delete: operations["companies_destroy"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["companies_partial_update"];
         trace?: never;
     };
     "/api/companies/logo-upload-url/": {
@@ -169,6 +169,19 @@ export interface components {
             filename: string;
             content_type: string;
         };
+        PatchedCompany: {
+            readonly id?: number;
+            name?: string;
+            website?: string;
+            industry?: string;
+            description?: string;
+            brand_colors?: string[];
+            /** Logo object path */
+            logo?: string;
+            readonly logo_url?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+        };
         PatchedUser: {
             /** Name of User */
             name?: string;
@@ -217,7 +230,10 @@ export interface operations {
     };
     companies_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A search term. */
+                search?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -270,6 +286,83 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+        };
+    };
+    companies_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this company. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Company"];
+                "application/x-www-form-urlencoded": components["schemas"]["Company"];
+                "multipart/form-data": components["schemas"]["Company"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+        };
+    };
+    companies_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this company. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    companies_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this company. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCompany"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCompany"];
+                "multipart/form-data": components["schemas"]["PatchedCompany"];
+            };
+        };
         responses: {
             200: {
                 headers: {
