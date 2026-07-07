@@ -28,7 +28,7 @@ export function CreateCompanyPage() {
         }
         onSubmit={(payload) =>
           create.mutate(
-            { ...payload, name: payload.name },
+            payload,
             { onSuccess: (c) => navigate({ to: "/companies/$companyId", params: { companyId: String(c.id) } }) },
           )
         }

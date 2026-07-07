@@ -164,6 +164,17 @@ def test_delete_removes_company_and_cleans_logo(auth_client):
     delete_object.assert_called_once_with("media/companies/logos/x/a.png")
 
 
+def test_delete_without_logo_skips_cleanup(auth_client):
+    company = CompanyFactory(logo="")
+    with mock.patch(
+        "collateral_ai.companies.api.views.gcs.delete_object",
+    ) as delete_object:
+        resp = auth_client.delete(f"/api/companies/{company.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not Company.objects.filter(pk=company.pk).exists()
+    delete_object.assert_not_called()
+
+
 def test_patch_and_delete_require_auth():
     company = CompanyFactory()
     assert APIClient().patch(f"/api/companies/{company.pk}/", {}, format="json").status_code == HTTPStatus.FORBIDDEN
