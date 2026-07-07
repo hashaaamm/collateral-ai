@@ -25,6 +25,11 @@ services:
     env_file:
       - ./backend/.envs/.local/.django
       - ./backend/.envs/.local/.postgres
+    environment:
+      DJANGO_GCP_STORAGE_BUCKET_NAME: collateral-ai-local-media
+      STORAGE_EMULATOR_HOST: http://gcs:4443
+      GCS_SIGNED_URL_ENDPOINT: http://localhost:4443
+      GOOGLE_APPLICATION_CREDENTIALS: /app/.gcs-signer.json
     ports:
       - "8000:8000"
     command: sh -c "python /app/scripts/ensure_local_gcs_signer.py && exec /start"
