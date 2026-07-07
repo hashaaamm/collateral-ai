@@ -106,3 +106,19 @@ def test_complete_retries_failed_doc(auth_client):
     doc.refresh_from_db()
     assert doc.status == DocumentStatus.PROCESSING
     assert doc.error_message == ""
+
+
+def test_retrieve_other_companys_document_404(auth_client):
+    company_a, company_b = CompanyFactory(), CompanyFactory()
+    doc_b = DocumentFactory(company=company_b)
+    resp = auth_client.get(f"{docs_url(company_a.pk)}{doc_b.pk}/")
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_complete_other_companys_document_404(auth_client):
+    company_a, company_b = CompanyFactory(), CompanyFactory()
+    doc_b = DocumentFactory(company=company_b, status=DocumentStatus.PENDING)
+    resp = auth_client.post(f"{docs_url(company_a.pk)}{doc_b.pk}/complete/")
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    doc_b.refresh_from_db()
+    assert doc_b.status == DocumentStatus.PENDING
