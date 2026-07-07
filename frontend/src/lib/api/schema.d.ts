@@ -20,6 +20,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["companies_list"];
+        put?: never;
+        post: operations["companies_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["companies_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/logo-upload-url/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["companies_logo_upload_url_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/schema/": {
         parameters: {
             query?: never;
@@ -99,6 +147,28 @@ export interface components {
             password: string;
             readonly token: string;
         };
+        Company: {
+            readonly id: number;
+            name: string;
+            website?: string;
+            industry?: string;
+            description?: string;
+            brand_colors?: string[];
+            /** Logo object path */
+            logo?: string;
+            readonly logo_url: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        LogoUploadUrl: {
+            /** Format: uri */
+            upload_url: string;
+            object_path: string;
+        };
+        LogoUploadUrlRequest: {
+            filename: string;
+            content_type: string;
+        };
         PatchedUser: {
             /** Name of User */
             name?: string;
@@ -141,6 +211,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthToken"];
+                };
+            };
+        };
+    };
+    companies_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"][];
+                };
+            };
+        };
+    };
+    companies_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Company"];
+                "application/x-www-form-urlencoded": components["schemas"]["Company"];
+                "multipart/form-data": components["schemas"]["Company"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+        };
+    };
+    companies_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this company. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+        };
+    };
+    companies_logo_upload_url_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoUploadUrlRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LogoUploadUrlRequest"];
+                "multipart/form-data": components["schemas"]["LogoUploadUrlRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoUploadUrl"];
                 };
             };
         };

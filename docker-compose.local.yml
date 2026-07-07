@@ -16,6 +16,7 @@ services:
     container_name: collateral_ai_local_django
     depends_on:
       - postgres
+      - gcs
     volumes:
       # Anonymous volume preserves the image-built uv venv at /app/.venv so the ./backend
       # bind-mount below doesn't shadow it (matches cookiecutter's own local compose).
@@ -24,9 +25,14 @@ services:
     env_file:
       - ./backend/.envs/.local/.django
       - ./backend/.envs/.local/.postgres
+    environment:
+      DJANGO_GCP_STORAGE_BUCKET_NAME: collateral-ai-local-media
+      STORAGE_EMULATOR_HOST: http://gcs:4443
+      GCS_SIGNED_URL_ENDPOINT: http://localhost:4443
+      GOOGLE_APPLICATION_CREDENTIALS: /app/.gcs-signer.json
     ports:
       - "8000:8000"
-    command: /start        # cookiecutter's local start: migrate + runserver_plus :8000
+    command: sh -c "python /app/scripts/ensure_local_gcs_signer.py && exec /start"
 
   postgres:
     image: postgres:16
@@ -35,6 +41,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
     env_file:
       - ./backend/.envs/.local/.postgres
+
+  # GCS emulator — lets company-logo signed URLs (companies.gcs) run the SAME code path
+  # locally as in prod. Bucket dir is bind-mounted from backend/.gcs-emulator; the
+  # `gcs-init` just recipe creates the bucket + CORS after startup.
+  gcs:
+    image: fsouza/fake-gcs-server:latest
+    container_name: collateral_ai_local_gcs
+    command: -scheme http -public-host localhost:4443 -port 4443 -data /data
+    ports:
+      - "4443:4443"
+    volumes:
+      - ./backend/.gcs-emulator:/data
 
   # Frontend from a node image (works for Next.js and React/Vite — both have a `pnpm dev` script).
   frontend:

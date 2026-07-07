@@ -175,7 +175,7 @@ bucket = gcp.storage.Bucket(
     location=REGION,
     uniform_bucket_level_access=True,
     cors=[gcp.storage.BucketCorArgs(
-        origins=os.environ.get("BUCKET_CORS_ALLOWED_ORIGINS", "http://localhost:3000,https://collateralai.example.com").split(","),
+        origins=os.environ.get("BUCKET_CORS_ALLOWED_ORIGINS", "http://localhost:3000,https://collateralai.tinyfleet.dev").split(","),
         methods=["GET", "PUT", "POST", "DELETE"],
         response_headers=["Content-Type", "Authorization"],
         max_age_seconds=3600,
@@ -193,6 +193,15 @@ for role in ["roles/cloudsql.client", "roles/secretmanager.secretAccessor", "rol
         project=PROJECT, role=role,
         member=run_sa.email.apply(lambda e: f"serviceAccount:{e}"),
     )
+
+# Let the Cloud Run runtime SA sign blobs AS ITSELF (keyless V4 signed URLs via the
+# IAM SignBlob API) — required for GCS logo upload/display signed URLs.
+gcp.serviceaccount.IAMMember(
+    f"{SLUG}-run-sa-token-creator",
+    service_account_id=run_sa.name,
+    role="roles/iam.serviceAccountTokenCreator",
+    member=run_sa.email.apply(lambda e: f"serviceAccount:{e}"),
+)
 
 cicd_sa = gcp.serviceaccount.Account(
     f"{SLUG}-cicd-sa", account_id="github-cicd-sa", display_name="GitHub Actions CI/CD"

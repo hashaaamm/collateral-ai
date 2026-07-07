@@ -274,3 +274,7 @@ collateral_ai/media/
 .ipython/
 .env
 .envs/*
+
+# Throwaway local GCS emulator signer key (generated at container start; see
+# scripts/ensure_local_gcs_signer.py). Never committed.
+.gcs-signer.json

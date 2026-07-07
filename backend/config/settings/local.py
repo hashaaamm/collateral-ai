@@ -78,3 +78,9 @@ SPECTACULAR_SETTINGS = {  # noqa: F405
     **globals().get("SPECTACULAR_SETTINGS", {}),
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
 }
+
+# GCS — local emulator parity for company logo signed URLs (see docker-compose gcs service).
+# When these are unset (no emulator), companies.gcs.is_configured() is False and the
+# upload endpoint returns 503 gracefully.
+GS_BUCKET_NAME = env("DJANGO_GCP_STORAGE_BUCKET_NAME", default="")
+GCS_SIGNED_URL_ENDPOINT = env("GCS_SIGNED_URL_ENDPOINT", default="")

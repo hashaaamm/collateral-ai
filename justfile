@@ -32,6 +32,10 @@ makemigrations:
 createsuperuser:
     just manage createsuperuser
 
+# Initialize the local GCS emulator bucket + CORS (run after `just up`)
+gcs-init:
+    bash scripts/gcs-emulator-init.sh
+
 # Regenerate the frontend's typed API client from the backend OpenAPI schema
 gen-api:
     docker compose run --rm frontend pnpm gen:api

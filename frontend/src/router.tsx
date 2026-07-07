@@ -13,7 +13,9 @@ import { AboutPage } from "@/routes/about";
 import { LoginPage } from "@/routes/login";
 import { AppShell } from "@/components/app-shell";
 import { DashboardPage } from "@/routes/dashboard";
-import { CompaniesPage } from "@/routes/companies";
+import { CompaniesListPage } from "@/routes/companies-list";
+import { CompanyDetailPage } from "@/routes/company-detail";
+import { CreateCompanyPage } from "@/routes/create-company";
 import { CreatePage } from "@/routes/create";
 import { MaterialsPage } from "@/routes/materials";
 import { TemplatesPage } from "@/routes/templates";
@@ -86,7 +88,17 @@ const dashboardRoute = createRoute({
 const companiesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/companies",
-  component: CompaniesPage,
+  component: CompaniesListPage,
+});
+const companyDetailRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/companies/$companyId",
+  component: CompanyDetailPage,
+});
+const createCompanyRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/companies/new",
+  component: CreateCompanyPage,
 });
 const createMaterialRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -110,6 +122,8 @@ const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
     dashboardRoute,
     companiesRoute,
+    createCompanyRoute,
+    companyDetailRoute,
     createMaterialRoute,
     materialsRoute,
     templatesRoute,
