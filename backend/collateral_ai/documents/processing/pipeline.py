@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from django.db import transaction
@@ -26,22 +27,32 @@ class DocumentProcessingService:
         self.embedder = EmbeddingService()
 
     def process(self, document_id: int, force: bool = False) -> None:
+        t0 = time.monotonic()
         document = Document.objects.select_related("company").get(id=document_id)
         Document.objects.filter(id=document.id).update(
             status=DocumentStatus.PROCESSING, error_message="", updated_at=timezone.now(),
         )
+        logger.info("timing: db connect+fetch %.2fs (document=%s)", time.monotonic() - t0, document_id)
         try:
+            t = time.monotonic()
             pdf_bytes = self.storage.download(document.storage_path)
+            logger.info("timing: gcs download %.2fs (%d bytes)", time.monotonic() - t, len(pdf_bytes))
+            t = time.monotonic()
             extraction = self.extractor.extract(pdf_bytes=pdf_bytes, document=document)
+            logger.info("timing: extraction %.2fs (pages=%d)", time.monotonic() - t, extraction.page_count)
             payloads = self._build_payloads(document, extraction)
             if not payloads:
                 raise ValueError("No extractable content found in PDF.")
+            t = time.monotonic()
             embeddings = self.embedder.embed_documents([p["content"] for p in payloads])
+            logger.info("timing: embeddings %.2fs (chunks=%d)", time.monotonic() - t, len(payloads))
             if len(embeddings) != len(payloads):
                 raise ValueError(
                     f"embedding/chunk count mismatch {len(embeddings)}!={len(payloads)}",
                 )
+            t = time.monotonic()
             self._save_chunks(document, payloads, embeddings)
+            logger.info("timing: save chunks %.2fs", time.monotonic() - t)
             Document.objects.filter(id=document.id).update(
                 status=DocumentStatus.PROCESSED,
                 page_count=extraction.page_count,
