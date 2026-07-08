@@ -5,6 +5,7 @@ import { CaretRight, Globe, PencilSimple, Trash } from "@phosphor-icons/react";
 import { CompanyLogo } from "@/components/company-logo";
 import { DocumentsTab } from "@/components/documents-tab";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { LoadingState } from "@/components/ui/spinner";
 import { useCompany, useDeleteCompany } from "@/lib/api/companies";
 
 const TABS = ["Overview", "Documents", "Generated Materials"] as const;
@@ -30,7 +31,11 @@ export function CompanyDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (isLoading) {
-    return <div className="mx-auto max-w-[1080px] px-10 pt-8 text-sm text-mute">Loading…</div>;
+    return (
+      <div className="mx-auto max-w-[1080px] px-10 pt-8">
+        <LoadingState />
+      </div>
+    );
   }
   if (isError || !company) {
     return (
