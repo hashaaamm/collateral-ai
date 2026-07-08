@@ -77,7 +77,8 @@ jobs:
       - name: Migrate
         run: docker compose -f ../docker-compose.local.yml run --rm django python manage.py migrate
       - name: Test
-        run: docker compose -f ../docker-compose.local.yml run --rm django pytest -n auto
+        # No -n auto: pytest-xdist isn't a dep and the suite runs in ~1s single-process.
+        run: docker compose -f ../docker-compose.local.yml run --rm django pytest
       - name: Tear down
         if: always()
         run: docker compose -f ../docker-compose.local.yml down -v
