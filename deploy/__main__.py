@@ -29,6 +29,7 @@ DB_USER = os.environ.get("DB_USER", f"{SLUG}_user")
 REQUIRED_APIS = [
     "run", "sqladmin", "vpcaccess", "artifactregistry", "secretmanager",
     "compute", "storage", "servicenetworking", "iam", "iamcredentials",
+    "aiplatform",  # Vertex AI — document embeddings (gemini-embedding-001)
 ]
 apis = {
     name: gcp.projects.Service(
@@ -187,7 +188,7 @@ bucket = gcp.storage.Bucket(
 run_sa = gcp.serviceaccount.Account(
     f"{SLUG}-run-sa", account_id="cloud-run-sa", display_name="Cloud Run runtime"
 )
-for role in ["roles/cloudsql.client", "roles/secretmanager.secretAccessor", "roles/storage.objectAdmin"]:
+for role in ["roles/cloudsql.client", "roles/secretmanager.secretAccessor", "roles/storage.objectAdmin", "roles/aiplatform.user", "roles/run.developer"]:
     gcp.projects.IAMMember(
         f"{SLUG}-run-{role.split('/')[-1]}",
         project=PROJECT, role=role,
