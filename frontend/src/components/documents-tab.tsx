@@ -4,6 +4,7 @@ import { ArrowClockwise, ArrowSquareOut, FilePdf, Trash, UploadSimple } from "@p
 
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { StatusPill } from "@/components/status-pill";
+import { LoadingState } from "@/components/ui/spinner";
 import {
   getDocumentDownloadUrl,
   useCompleteDocument,
@@ -106,7 +107,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
       {error && <p className="mb-3 text-[12.5px] text-destructive">{error}</p>}
 
       {isLoading ? (
-        <p className="text-[13px] text-mute">Loading…</p>
+        <LoadingState />
       ) : docs.length === 0 ? (
         <p className="text-[13px] text-mute">No documents yet. Upload a PDF to get started.</p>
       ) : (
