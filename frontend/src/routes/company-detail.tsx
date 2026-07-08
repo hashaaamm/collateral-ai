@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { CaretRight, Globe, PencilSimple, Trash } from "@phosphor-icons/react";
 
 import { CompanyLogo } from "@/components/company-logo";
+import { DocumentsTab } from "@/components/documents-tab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +16,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useCompany, useDeleteCompany } from "@/lib/api/companies";
+
+const TABS = ["Overview", "Documents", "Generated Materials"] as const;
+type Tab = (typeof TABS)[number];
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -31,6 +36,7 @@ export function CompanyDetailPage() {
   const { data: company, isLoading, isError } = useCompany(Number(companyId));
   const navigate = useNavigate();
   const del = useDeleteCompany();
+  const [tab, setTab] = useState<Tab>("Overview");
 
   if (isLoading) {
     return <div className="mx-auto max-w-[1080px] px-10 pt-8 text-sm text-mute">Loading…</div>;
@@ -115,34 +121,55 @@ export function CompanyDetailPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-hairline bg-surface p-6">
-        <div className="grid grid-cols-2 gap-6">
-          <Field label="Website" value={company.website ?? ""} />
-          <Field label="Industry" value={company.industry ?? ""} />
-          <div className="col-span-2">
-            <Field label="Description" value={company.description ?? ""} />
-          </div>
-          <div className="col-span-2">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">
-              Brand colors
+      <div className="mb-5 flex gap-5 border-b border-hairline">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`-mb-px border-b-2 pb-[10px] text-[13.5px] font-medium ${
+              tab === t ? "border-brand text-ink" : "border-transparent text-mute hover:text-body"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === "Overview" && (
+        <div className="rounded-2xl border border-hairline bg-surface p-6">
+          <div className="grid grid-cols-2 gap-6">
+            <Field label="Website" value={company.website ?? ""} />
+            <Field label="Industry" value={company.industry ?? ""} />
+            <div className="col-span-2">
+              <Field label="Description" value={company.description ?? ""} />
             </div>
-            {company.brand_colors && company.brand_colors.length > 0 ? (
-              <div className="flex items-center gap-2">
-                {company.brand_colors.map((hex, i) => (
-                  <span
-                    key={`${hex}-${i}`}
-                    title={hex}
-                    className="size-[34px] rounded-lg border border-hairline"
-                    style={{ background: hex }}
-                  />
-                ))}
+            <div className="col-span-2">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">
+                Brand colors
               </div>
-            ) : (
-              <div className="text-[13.5px] text-body">—</div>
-            )}
+              {company.brand_colors && company.brand_colors.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  {company.brand_colors.map((hex, i) => (
+                    <span
+                      key={`${hex}-${i}`}
+                      title={hex}
+                      className="size-[34px] rounded-lg border border-hairline"
+                      style={{ background: hex }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[13.5px] text-body">—</div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+      {tab === "Documents" && <DocumentsTab companyId={Number(companyId)} />}
+      {tab === "Generated Materials" && (
+        <p className="text-[13px] text-mute">Coming soon.</p>
+      )}
     </div>
   );
 }

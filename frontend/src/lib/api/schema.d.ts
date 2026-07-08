@@ -36,6 +36,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_pk}/documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["companies_documents_list"];
+        put?: never;
+        post: operations["companies_documents_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_pk}/documents/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["companies_documents_retrieve"];
+        put?: never;
+        post?: never;
+        delete: operations["companies_documents_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_pk}/documents/{id}/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["companies_documents_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{id}/": {
         parameters: {
             query?: never;
@@ -160,6 +208,40 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        Document: {
+            readonly id: number;
+            readonly company: number;
+            file_name: string;
+            content_type: string;
+            readonly status: components["schemas"]["StatusEnum"];
+            readonly page_count: number | null;
+            readonly chunks_count: number;
+            readonly tables_count: number;
+            readonly images_count: number;
+            readonly error_message: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        DocumentCreateRequest: {
+            file_name: string;
+            content_type: string;
+        };
+        DocumentCreateResponse: {
+            id: number;
+            company: number;
+            file_name: string;
+            content_type: string;
+            status: string;
+            page_count: number | null;
+            chunks_count: number;
+            tables_count: number;
+            images_count: number;
+            error_message: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uri */
+            upload_url: string;
+        };
         LogoUploadUrl: {
             /** Format: uri */
             upload_url: string;
@@ -188,6 +270,14 @@ export interface components {
             /** Format: uri */
             readonly url?: string;
         };
+        /**
+         * @description * `pending` - Pending
+         *     * `processing` - Processing
+         *     * `processed` - Processed
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        StatusEnum: "pending" | "processing" | "processed" | "failed";
         User: {
             /** Name of User */
             name?: string;
@@ -271,6 +361,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Company"];
+                };
+            };
+        };
+    };
+    companies_documents_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"][];
+                };
+            };
+        };
+    };
+    companies_documents_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_pk: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["DocumentCreateRequest"];
+                "multipart/form-data": components["schemas"]["DocumentCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentCreateResponse"];
+                };
+            };
+        };
+    };
+    companies_documents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_pk: number;
+                /** @description A unique integer value identifying this document. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    companies_documents_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_pk: number;
+                /** @description A unique integer value identifying this document. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    companies_documents_complete_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_pk: number;
+                /** @description A unique integer value identifying this document. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
                 };
             };
         };
