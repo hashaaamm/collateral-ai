@@ -181,3 +181,45 @@ def test_create_rejects_overlong_file_name(auth_client):
         )
     assert resp.status_code == HTTPStatus.BAD_REQUEST
     assert not Document.objects.exists()
+
+
+def test_download_url_returns_signed_url_when_configured(auth_client):
+    company = CompanyFactory()
+    doc = DocumentFactory(company=company, file_name="report.pdf")
+    with (
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.is_configured",
+            return_value=True,
+        ),
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.signed_get_url",
+            return_value="https://signed-get",
+        ),
+    ):
+        resp = auth_client.get(
+            f"/api/companies/{company.pk}/documents/{doc.pk}/download-url/",
+        )
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json() == {"url": "https://signed-get"}
+
+
+def test_download_url_503_when_not_configured(auth_client):
+    company = CompanyFactory()
+    doc = DocumentFactory(company=company, file_name="report.pdf")
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured",
+        return_value=False,
+    ):
+        resp = auth_client.get(
+            f"/api/companies/{company.pk}/documents/{doc.pk}/download-url/",
+        )
+    assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+
+
+def test_download_url_scoped_to_company(auth_client):
+    a, b = CompanyFactory(), CompanyFactory()
+    doc = DocumentFactory(company=b, file_name="b.pdf")
+    resp = auth_client.get(
+        f"/api/companies/{a.pk}/documents/{doc.pk}/download-url/",
+    )
+    assert resp.status_code == HTTPStatus.NOT_FOUND

@@ -126,6 +126,22 @@ class DocumentViewSet(
         doc.refresh_from_db()
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
 
+    @extend_schema(
+        responses=inline_serializer(
+            name="DocumentDownloadResponse",
+            fields={"url": serializers.URLField()},
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="download-url")
+    def download_url(self, request, pk=None, company_pk=None):
+        doc = self.get_object()
+        if not doc.storage_path or not gcs.is_configured():
+            return Response(
+                {"detail": "Document download is not available in this environment."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"url": gcs.signed_get_url(doc.storage_path)})
+
     def perform_destroy(self, instance):
         if instance.storage_path and gcs.is_configured():
             gcs.delete_object(instance.storage_path)
