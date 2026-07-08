@@ -84,6 +84,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    // Hand-authored: a real `pnpm gen:api` run would emit a named `DocumentDownloadResponse` component `$ref` here instead of this inline `{ url: string }` body (consumer stays compatible).
+    "/api/companies/{company_pk}/documents/{id}/download-url/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["companies_documents_download_url_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{id}/": {
         parameters: {
             query?: never;
@@ -477,6 +494,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    companies_documents_download_url_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_pk: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                    };
                 };
             };
         };

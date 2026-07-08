@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deleteDocument, uploadDocument } from "./documents";
+import { deleteDocument, getDocumentDownloadUrl, uploadDocument } from "./documents";
 import { api } from "./client";
 import * as upload from "./upload";
 
@@ -57,5 +57,28 @@ describe("deleteDocument", () => {
     expect(del).toHaveBeenCalledWith("/api/companies/{company_pk}/documents/{id}/", {
       params: { path: { company_pk: 3, id: 7 } },
     });
+  });
+});
+
+describe("getDocumentDownloadUrl", () => {
+  it("GETs the download-url endpoint and returns the url", async () => {
+    const get = vi.spyOn(api, "GET").mockResolvedValue({
+      data: { url: "https://signed-get" },
+      error: undefined,
+    } as never);
+    const url = await getDocumentDownloadUrl(3, 7);
+    expect(get).toHaveBeenCalledWith(
+      "/api/companies/{company_pk}/documents/{id}/download-url/",
+      { params: { path: { company_pk: 3, id: 7 } } },
+    );
+    expect(url).toBe("https://signed-get");
+  });
+
+  it("throws download_unavailable on error", async () => {
+    vi.spyOn(api, "GET").mockResolvedValue({
+      data: undefined,
+      error: { detail: "no" },
+    } as never);
+    await expect(getDocumentDownloadUrl(3, 7)).rejects.toThrow("download_unavailable");
   });
 });
