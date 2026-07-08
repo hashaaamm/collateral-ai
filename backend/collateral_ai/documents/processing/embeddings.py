@@ -1,12 +1,9 @@
 """Gemini embeddings via Vertex AI (keyless ADC)."""
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterable
 
 from django.conf import settings
-
-logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:

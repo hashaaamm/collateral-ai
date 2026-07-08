@@ -57,5 +57,8 @@ def test_reprocess_replaces_chunks():
     with p1, p2:
         DocumentProcessingService().process(doc.id)
         first = DocumentChunk.objects.filter(document=doc).count()
+        # `force` is a placeholder in Phase 2a (process() has no skip-if-processed guard yet), so
+        # this reprocess would replace chunks identically with or without it; asserting the count
+        # is stable proves the delete-then-recreate replacement, not force-specific behavior.
         DocumentProcessingService().process(doc.id, force=True)
     assert DocumentChunk.objects.filter(document=doc).count() == first
