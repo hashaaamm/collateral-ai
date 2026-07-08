@@ -120,7 +120,8 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
                 <th className="px-4 py-[10px] text-center">Chunks</th>
                 <th className="px-4 py-[10px] text-center">Tables</th>
                 <th className="px-4 py-[10px] text-center">Images</th>
-                <th className="px-4 py-[10px] text-right">Status</th>
+                <th className="px-4 py-[10px] text-left">Status</th>
+                <th className="w-[76px] px-4 py-[10px]"></th>
               </tr>
             </thead>
             <tbody>
@@ -137,7 +138,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
                   <td className="px-4 py-3 text-center text-mute">{num(d.tables_count)}</td>
                   <td className="px-4 py-3 text-center text-mute">{num(d.images_count)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center gap-2">
                       <StatusPill status={d.status} />
                       {d.status === "failed" && (
                         <button
@@ -148,25 +149,29 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
                           <ArrowClockwise size={13} /> Retry
                         </button>
                       )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
                       {/* Every listed doc has a storage object (set at create time), so Open is always shown. */}
                       <button
                         type="button"
                         disabled={openingId === d.id}
                         onClick={() => onOpen(d)}
-                        className="flex items-center gap-1 text-[12px] text-mute hover:text-brand disabled:opacity-50"
+                        className="flex h-[30px] w-[30px] items-center justify-center rounded-lg text-faint hover:bg-subtle hover:text-brand disabled:opacity-50"
                         aria-label={`Open ${d.file_name} in a new tab`}
                         title="Open in new tab"
                       >
-                        <ArrowSquareOut size={15} />
+                        <ArrowSquareOut size={16} />
                       </button>
                       <button
                         type="button"
                         onClick={() => setDeleteTarget(d)}
-                        className="flex items-center gap-1 text-[12px] text-mute hover:text-destructive"
+                        className="flex h-[30px] w-[30px] items-center justify-center rounded-lg text-faint hover:bg-danger-soft hover:text-destructive"
                         aria-label={`Delete ${d.file_name}`}
                         title="Delete"
                       >
-                        <Trash size={14} />
+                        <Trash size={16} />
                       </button>
                     </div>
                   </td>
