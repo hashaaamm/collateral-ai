@@ -11,6 +11,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read # dorny/paths-filter lists PR files via the API on pull_request events
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -25,6 +29,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - '.pre-commit-config.yaml'
             frontend:
               - 'frontend/**'
 
@@ -36,7 +41,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: pre-commit/action@v3.0.1
 
   backend-test:
@@ -48,6 +53,23 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+      - name: Create env files (gitignored locally, absent in CI)
+        # docker-compose.local.yml references these via env_file; even `down` fails to
+        # parse the compose model without them. CI-only throwaway values.
+        run: |
+          mkdir -p .envs/.local ../.envs/.local
+          {
+            echo "USE_DOCKER=yes"
+            echo "IPYTHONDIR=/app/.ipython"
+          } > .envs/.local/.django
+          {
+            echo "POSTGRES_HOST=postgres"
+            echo "POSTGRES_PORT=5432"
+            echo "POSTGRES_DB=collateral_ai"
+            echo "POSTGRES_USER=ci_user"
+            echo "POSTGRES_PASSWORD=ci_only_password"
+          } > .envs/.local/.postgres
+          echo "VITE_API_URL=http://localhost:8000" > ../.envs/.local/.frontend
       - name: Build stack
         run: docker compose -f ../docker-compose.local.yml build django postgres
       - name: Check migrations
@@ -55,7 +77,8 @@ jobs:
       - name: Migrate
         run: docker compose -f ../docker-compose.local.yml run --rm django python manage.py migrate
       - name: Test
-        run: docker compose -f ../docker-compose.local.yml run --rm django pytest -n auto
+        # No -n auto: pytest-xdist isn't a dep and the suite runs in ~1s single-process.
+        run: docker compose -f ../docker-compose.local.yml run --rm django pytest
       - name: Tear down
         if: always()
         run: docker compose -f ../docker-compose.local.yml down -v

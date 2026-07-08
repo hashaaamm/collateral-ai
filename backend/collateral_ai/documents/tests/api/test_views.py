@@ -27,7 +27,8 @@ def docs_url(company_pk: int) -> str:
 
 
 def test_list_requires_auth():
-    assert APIClient().get("/api/companies/1/documents/").status_code == HTTPStatus.FORBIDDEN
+    resp = APIClient().get("/api/companies/1/documents/")
+    assert resp.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_list_is_scoped_to_company(auth_client):
@@ -42,11 +43,15 @@ def test_list_is_scoped_to_company(auth_client):
 
 def test_create_reserves_pending_doc_and_returns_upload_url(auth_client):
     company = CompanyFactory()
-    with mock.patch(
-        "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
-    ), mock.patch(
-        "collateral_ai.documents.api.views.gcs.signed_upload_url",
-        return_value="https://signed-put",
+    with (
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.is_configured",
+            return_value=True,
+        ),
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.signed_upload_url",
+            return_value="https://signed-put",
+        ),
     ):
         resp = auth_client.post(
             docs_url(company.pk),
@@ -60,13 +65,16 @@ def test_create_reserves_pending_doc_and_returns_upload_url(auth_client):
     assert body["company"] == company.pk
     doc = Document.objects.get(pk=body["id"])
     assert doc.company_id == company.pk
-    assert doc.storage_path.startswith(f"media/companies/{company.pk}/documents/{doc.pk}/")
+    assert doc.storage_path.startswith(
+        f"media/companies/{company.pk}/documents/{doc.pk}/",
+    )
 
 
 def test_create_rejects_non_pdf(auth_client):
     company = CompanyFactory()
     with mock.patch(
-        "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
+        "collateral_ai.documents.api.views.gcs.is_configured",
+        return_value=True,
     ):
         resp = auth_client.post(
             docs_url(company.pk),
@@ -80,7 +88,8 @@ def test_create_rejects_non_pdf(auth_client):
 def test_create_503_when_unconfigured(auth_client):
     company = CompanyFactory()
     with mock.patch(
-        "collateral_ai.documents.api.views.gcs.is_configured", return_value=False,
+        "collateral_ai.documents.api.views.gcs.is_configured",
+        return_value=False,
     ):
         resp = auth_client.post(
             docs_url(company.pk),
@@ -128,11 +137,15 @@ def test_complete_other_companys_document_404(auth_client):
 
 def test_delete_removes_row_and_cleans_gcs(auth_client):
     doc = DocumentFactory(storage_path="media/companies/1/documents/1/doc.pdf")
-    with mock.patch(
-        "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
-    ), mock.patch(
-        "collateral_ai.documents.api.views.gcs.delete_object",
-    ) as delete_object:
+    with (
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.is_configured",
+            return_value=True,
+        ),
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.delete_object",
+        ) as delete_object,
+    ):
         resp = auth_client.delete(f"{docs_url(doc.company_id)}{doc.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT
     assert not Document.objects.filter(pk=doc.pk).exists()
@@ -141,11 +154,15 @@ def test_delete_removes_row_and_cleans_gcs(auth_client):
 
 def test_delete_skips_gcs_when_unconfigured(auth_client):
     doc = DocumentFactory()
-    with mock.patch(
-        "collateral_ai.documents.api.views.gcs.is_configured", return_value=False,
-    ), mock.patch(
-        "collateral_ai.documents.api.views.gcs.delete_object",
-    ) as delete_object:
+    with (
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.is_configured",
+            return_value=False,
+        ),
+        mock.patch(
+            "collateral_ai.documents.api.views.gcs.delete_object",
+        ) as delete_object,
+    ):
         resp = auth_client.delete(f"{docs_url(doc.company_id)}{doc.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT
     delete_object.assert_not_called()
@@ -154,7 +171,8 @@ def test_delete_skips_gcs_when_unconfigured(auth_client):
 def test_create_rejects_overlong_file_name(auth_client):
     company = CompanyFactory()
     with mock.patch(
-        "collateral_ai.documents.api.views.gcs.is_configured", return_value=True,
+        "collateral_ai.documents.api.views.gcs.is_configured",
+        return_value=True,
     ):
         resp = auth_client.post(
             docs_url(company.pk),

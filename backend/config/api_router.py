@@ -13,7 +13,11 @@ router.register("users", UserViewSet)
 router.register("companies", CompanyViewSet, basename="company")
 
 # Documents are a sub-resource of a company: /api/companies/{company_pk}/documents/
-companies_router = nested_routers.NestedSimpleRouter(router, "companies", lookup="company")
+companies_router = nested_routers.NestedSimpleRouter(
+    router,
+    "companies",
+    lookup="company",
+)
 companies_router.register("documents", DocumentViewSet, basename="company-documents")
 
 app_name = "api"

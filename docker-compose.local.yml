@@ -35,7 +35,9 @@ services:
     command: sh -c "python /app/scripts/ensure_local_gcs_signer.py && exec /start"
 
   postgres:
-    image: postgres:16
+    # pgvector-enabled PG16 (matches backend/compose/production/postgres/Dockerfile):
+    # the documents migrations run CREATE EXTENSION vector.
+    image: pgvector/pgvector:pg16
     container_name: collateral_ai_local_postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data

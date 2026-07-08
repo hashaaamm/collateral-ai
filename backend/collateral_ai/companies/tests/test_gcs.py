@@ -23,13 +23,16 @@ def test_build_logo_object_path_sanitizes_and_uuids():
     assert prefix == "media/companies/logos"
     assert len(uuid_seg) >= 32  # a uuid hex/str
     assert filename == "my_logo_v2.png"
-    assert " " not in filename and "(" not in filename
+    assert " " not in filename
+    assert "(" not in filename
 
 
 def test_signed_upload_url_delegates_to_blob(settings):
     settings.GS_BUCKET_NAME = "my-bucket"
-    with mock.patch.object(gcs, "_bucket") as bucket, \
-         mock.patch.object(gcs, "_signing_credentials"):
+    with (
+        mock.patch.object(gcs, "_bucket") as bucket,
+        mock.patch.object(gcs, "_signing_credentials"),
+    ):
         blob = bucket.return_value.blob.return_value
         blob.generate_signed_url.return_value = "https://signed-put"
         url = gcs.signed_upload_url("media/companies/logos/x/a.png", "image/png")
@@ -42,8 +45,10 @@ def test_signed_upload_url_delegates_to_blob(settings):
 
 def test_signed_get_url_delegates_to_blob(settings):
     settings.GS_BUCKET_NAME = "my-bucket"
-    with mock.patch.object(gcs, "_bucket") as bucket, \
-         mock.patch.object(gcs, "_signing_credentials"):
+    with (
+        mock.patch.object(gcs, "_bucket") as bucket,
+        mock.patch.object(gcs, "_signing_credentials"),
+    ):
         blob = bucket.return_value.blob.return_value
         blob.generate_signed_url.return_value = "https://signed-get"
         url = gcs.signed_get_url("media/companies/logos/x/a.png")

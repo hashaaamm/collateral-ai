@@ -52,12 +52,15 @@ def test_retrieve_company(auth_client):
 
 def test_logo_url_is_signed_when_configured(auth_client):
     company = CompanyFactory(logo="media/companies/logos/x/a.png")
-    with mock.patch(
-        "collateral_ai.companies.api.serializers.gcs.is_configured",
-        return_value=True,
-    ), mock.patch(
-        "collateral_ai.companies.api.serializers.gcs.signed_get_url",
-        return_value="https://signed-get",
+    with (
+        mock.patch(
+            "collateral_ai.companies.api.serializers.gcs.is_configured",
+            return_value=True,
+        ),
+        mock.patch(
+            "collateral_ai.companies.api.serializers.gcs.signed_get_url",
+            return_value="https://signed-get",
+        ),
     ):
         resp = auth_client.get(f"/api/companies/{company.pk}/")
     assert resp.json()["logo_url"] == "https://signed-get"
@@ -90,15 +93,19 @@ def test_logo_upload_url_rejects_bad_content_type(auth_client):
 
 
 def test_logo_upload_url_returns_signed_put(auth_client):
-    with mock.patch(
-        "collateral_ai.companies.api.views.gcs.is_configured",
-        return_value=True,
-    ), mock.patch(
-        "collateral_ai.companies.api.views.gcs.build_logo_object_path",
-        return_value="media/companies/logos/x/a.png",
-    ), mock.patch(
-        "collateral_ai.companies.api.views.gcs.signed_upload_url",
-        return_value="https://signed-put",
+    with (
+        mock.patch(
+            "collateral_ai.companies.api.views.gcs.is_configured",
+            return_value=True,
+        ),
+        mock.patch(
+            "collateral_ai.companies.api.views.gcs.build_logo_object_path",
+            return_value="media/companies/logos/x/a.png",
+        ),
+        mock.patch(
+            "collateral_ai.companies.api.views.gcs.signed_upload_url",
+            return_value="https://signed-put",
+        ),
     ):
         resp = auth_client.post(
             "/api/companies/logo-upload-url/",
@@ -137,7 +144,9 @@ def test_search_no_match_returns_empty(auth_client):
 def test_patch_updates_name(auth_client):
     company = CompanyFactory(name="Old")
     resp = auth_client.patch(
-        f"/api/companies/{company.pk}/", {"name": "New"}, format="json",
+        f"/api/companies/{company.pk}/",
+        {"name": "New"},
+        format="json",
     )
     assert resp.status_code == HTTPStatus.OK
     company.refresh_from_db()
@@ -153,11 +162,15 @@ def test_patch_without_logo_keeps_existing(auth_client):
 
 def test_delete_removes_company_and_cleans_logo(auth_client):
     company = CompanyFactory(logo="media/companies/logos/x/a.png")
-    with mock.patch(
-        "collateral_ai.companies.api.views.gcs.is_configured", return_value=True,
-    ), mock.patch(
-        "collateral_ai.companies.api.views.gcs.delete_object",
-    ) as delete_object:
+    with (
+        mock.patch(
+            "collateral_ai.companies.api.views.gcs.is_configured",
+            return_value=True,
+        ),
+        mock.patch(
+            "collateral_ai.companies.api.views.gcs.delete_object",
+        ) as delete_object,
+    ):
         resp = auth_client.delete(f"/api/companies/{company.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT
     assert not Company.objects.filter(pk=company.pk).exists()
@@ -177,5 +190,7 @@ def test_delete_without_logo_skips_cleanup(auth_client):
 
 def test_patch_and_delete_require_auth():
     company = CompanyFactory()
-    assert APIClient().patch(f"/api/companies/{company.pk}/", {}, format="json").status_code == HTTPStatus.FORBIDDEN
-    assert APIClient().delete(f"/api/companies/{company.pk}/").status_code == HTTPStatus.FORBIDDEN
+    patch_resp = APIClient().patch(f"/api/companies/{company.pk}/", {}, format="json")
+    assert patch_resp.status_code == HTTPStatus.FORBIDDEN
+    delete_resp = APIClient().delete(f"/api/companies/{company.pk}/")
+    assert delete_resp.status_code == HTTPStatus.FORBIDDEN

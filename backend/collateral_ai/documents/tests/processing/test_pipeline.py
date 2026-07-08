@@ -4,7 +4,6 @@ from unittest import mock
 
 import pytest
 
-from collateral_ai.documents.models import Document
 from collateral_ai.documents.models import DocumentChunk
 from collateral_ai.documents.processing.pipeline import DocumentProcessingService
 from collateral_ai.documents.statuses import DocumentStatus
@@ -41,10 +40,13 @@ def test_process_creates_chunks_and_marks_processed():
 
 def test_process_marks_failed_on_error():
     doc = DocumentFactory(status=DocumentStatus.PROCESSING, storage_path="p/x.pdf")
-    with mock.patch(
-        "collateral_ai.documents.processing.pipeline.StorageService.download",
-        side_effect=RuntimeError("boom"),
-    ), pytest.raises(RuntimeError):
+    with (
+        mock.patch(
+            "collateral_ai.documents.processing.pipeline.StorageService.download",
+            side_effect=RuntimeError("boom"),
+        ),
+        pytest.raises(RuntimeError),
+    ):
         DocumentProcessingService().process(doc.id)
     doc.refresh_from_db()
     assert doc.status == DocumentStatus.FAILED
@@ -57,8 +59,9 @@ def test_reprocess_replaces_chunks():
     with p1, p2:
         DocumentProcessingService().process(doc.id)
         first = DocumentChunk.objects.filter(document=doc).count()
-        # `force` is a placeholder in Phase 2a (process() has no skip-if-processed guard yet), so
-        # this reprocess would replace chunks identically with or without it; asserting the count
-        # is stable proves the delete-then-recreate replacement, not force-specific behavior.
+        # `force` is a placeholder in Phase 2a (process() has no
+        # skip-if-processed guard yet), so this reprocess would replace chunks
+        # identically with or without it; asserting the count is stable proves
+        # the delete-then-recreate replacement, not force-specific behavior.
         DocumentProcessingService().process(doc.id, force=True)
     assert DocumentChunk.objects.filter(document=doc).count() == first

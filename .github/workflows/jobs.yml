@@ -73,9 +73,10 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: github-cicd-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Create & execute Cloud Run Job
+      - name: Deploy & execute Cloud Run Job
         run: |
-          JOB_NAME="${SERVICE_NAME}-job-$(head -c 6 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c 6)"
+          # Fixed name + `jobs deploy` (create-or-update) so runs don't leak one-off jobs.
+          JOB_NAME="${SERVICE_NAME}-manage"
           ARGS="manage.py,${JOB_COMMAND}"
 
           # Flags file handles special characters / nested env vars cleanly.
@@ -95,7 +96,7 @@ jobs:
             DJANGO_SUPERUSER_PASSWORD: "${{ github.event.inputs.superuser_password }}"
           EOF
 
-          gcloud run jobs create "$JOB_NAME" \
+          gcloud run jobs deploy "$JOB_NAME" \
             --quiet \
             --region "$REGION" \
             --project "$PROJECT_ID" \

@@ -1,9 +1,14 @@
+# Monorepo root config (moved from backend/): hooks are scoped to the Django backend;
+# the frontend has its own lint via `pnpm lint`/`typecheck` in CI.
+files: '^backend/'
 exclude: '^docs/|/migrations/|devcontainer.json'
 default_stages: [pre-commit]
 minimum_pre_commit_version: "3.2.0"
 
+# Match the project/CI runtime (ci.yml sets up 3.13); also required for
+# pyproject-fmt, which needs tomllib (py3.11+) in its hook environment.
 default_language_version:
-  python: python3.14
+  python: python3.13
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

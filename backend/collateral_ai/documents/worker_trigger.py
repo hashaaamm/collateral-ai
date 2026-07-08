@@ -1,4 +1,5 @@
 """Trigger document processing: inline command locally, Cloud Run Job in prod."""
+
 from __future__ import annotations
 
 from django.conf import settings
@@ -22,8 +23,15 @@ def trigger_processing(document) -> None:
     overrides = run_v2.RunJobRequest.Overrides(
         container_overrides=[
             run_v2.RunJobRequest.Overrides.ContainerOverride(
-                args=["manage.py", "process_document", "--document-id", str(document.pk)],
+                args=[
+                    "manage.py",
+                    "process_document",
+                    "--document-id",
+                    str(document.pk),
+                ],
             ),
         ],
     )
-    run_v2.JobsClient().run_job(request=run_v2.RunJobRequest(name=name, overrides=overrides))
+    run_v2.JobsClient().run_job(
+        request=run_v2.RunJobRequest(name=name, overrides=overrides),
+    )

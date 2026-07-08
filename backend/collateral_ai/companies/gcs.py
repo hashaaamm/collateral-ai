@@ -8,13 +8,16 @@ Dual signing so the SAME code path runs in prod and local:
   service-account key, so google.auth.default() returns service_account.Credentials that
   sign directly with the key. The emulator ignores the signature.
 
-The signed-URL host is settings.GCS_SIGNED_URL_ENDPOINT (passed as api_access_endpoint):
-unset in prod (defaults to real GCS), set to the browser-reachable emulator host locally.
+The signed-URL host is settings.GCS_SIGNED_URL_ENDPOINT (passed as
+api_access_endpoint): unset in prod (defaults to real GCS), set to the
+browser-reachable emulator host locally.
 When GS_BUCKET_NAME is unset (CI/unit tests), the module is "not configured" and callers
 degrade gracefully.
 """
+
 from __future__ import annotations
 
+import contextlib
 import datetime
 import re
 import uuid
@@ -80,7 +83,10 @@ def _signed_url(object_path, *, method, expiration, content_type=None):
 
 def signed_upload_url(object_path: str, content_type: str) -> str:
     return _signed_url(
-        object_path, method="PUT", expiration=UPLOAD_EXPIRY, content_type=content_type,
+        object_path,
+        method="PUT",
+        expiration=UPLOAD_EXPIRY,
+        content_type=content_type,
     )
 
 
@@ -90,7 +96,6 @@ def signed_get_url(object_path: str) -> str:
 
 def delete_object(object_path: str) -> None:
     """Best-effort delete of a stored object; never raises."""
-    try:
+    # Deletion is best-effort, so any failure is deliberately swallowed.
+    with contextlib.suppress(Exception):
         _bucket().blob(object_path).delete()
-    except Exception:  # noqa: BLE001 - deletion is best-effort
-        pass

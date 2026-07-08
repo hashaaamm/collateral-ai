@@ -1,7 +1,7 @@
 volumes:
   collateral_ai_local_postgres_data: {}
   collateral_ai_local_postgres_data_backups: {}
-  
+
 
 services:
   django:

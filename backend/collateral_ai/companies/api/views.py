@@ -65,7 +65,11 @@ class CompanyViewSet(
         content_type = request.data.get("content_type")
         if not filename or content_type not in ALLOWED_LOGO_TYPES:
             return Response(
-                {"detail": "A filename and a supported image content_type are required."},
+                {
+                    "detail": (
+                        "A filename and a supported image content_type are required."
+                    ),
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         object_path = gcs.build_logo_object_path(filename)
