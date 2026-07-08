@@ -1,4 +1,5 @@
 """Document processing orchestration: download → extract → chunk → embed → persist."""
+
 from __future__ import annotations
 
 import logging
@@ -26,30 +27,53 @@ class DocumentProcessingService:
         self.chunker = ChunkingService()
         self.embedder = EmbeddingService()
 
-    def process(self, document_id: int, force: bool = False) -> None:
+    def process(self, document_id: int, *, force: bool = False) -> None:
         t0 = time.monotonic()
         document = Document.objects.select_related("company").get(id=document_id)
         Document.objects.filter(id=document.id).update(
-            status=DocumentStatus.PROCESSING, error_message="", updated_at=timezone.now(),
+            status=DocumentStatus.PROCESSING,
+            error_message="",
+            updated_at=timezone.now(),
         )
-        logger.info("timing: db connect+fetch %.2fs (document=%s)", time.monotonic() - t0, document_id)
+        logger.info(
+            "timing: db connect+fetch %.2fs (document=%s)",
+            time.monotonic() - t0,
+            document_id,
+        )
         try:
             t = time.monotonic()
             pdf_bytes = self.storage.download(document.storage_path)
-            logger.info("timing: gcs download %.2fs (%d bytes)", time.monotonic() - t, len(pdf_bytes))
+            logger.info(
+                "timing: gcs download %.2fs (%d bytes)",
+                time.monotonic() - t,
+                len(pdf_bytes),
+            )
             t = time.monotonic()
             extraction = self.extractor.extract(pdf_bytes=pdf_bytes, document=document)
-            logger.info("timing: extraction %.2fs (pages=%d)", time.monotonic() - t, extraction.page_count)
+            logger.info(
+                "timing: extraction %.2fs (pages=%d)",
+                time.monotonic() - t,
+                extraction.page_count,
+            )
             payloads = self._build_payloads(document, extraction)
             if not payloads:
-                raise ValueError("No extractable content found in PDF.")
+                # Raised inside try on purpose: our own except below marks the
+                # document failed before re-raising.
+                msg = "No extractable content found in PDF."
+                raise ValueError(msg)  # noqa: TRY301
             t = time.monotonic()
             embeddings = self.embedder.embed_documents([p["content"] for p in payloads])
-            logger.info("timing: embeddings %.2fs (chunks=%d)", time.monotonic() - t, len(payloads))
+            logger.info(
+                "timing: embeddings %.2fs (chunks=%d)",
+                time.monotonic() - t,
+                len(payloads),
+            )
             if len(embeddings) != len(payloads):
-                raise ValueError(
-                    f"embedding/chunk count mismatch {len(embeddings)}!={len(payloads)}",
+                # Raised inside try on purpose: see comment above.
+                msg = (
+                    f"embedding/chunk count mismatch {len(embeddings)}!={len(payloads)}"
                 )
+                raise ValueError(msg)  # noqa: TRY301
             t = time.monotonic()
             self._save_chunks(document, payloads, embeddings)
             logger.info("timing: save chunks %.2fs", time.monotonic() - t)
@@ -65,7 +89,9 @@ class DocumentProcessingService:
         except Exception as exc:
             logger.exception("processing failed document=%s", document_id)
             Document.objects.filter(id=document.id).update(
-                status=DocumentStatus.FAILED, error_message=str(exc), updated_at=timezone.now(),
+                status=DocumentStatus.FAILED,
+                error_message=str(exc),
+                updated_at=timezone.now(),
             )
             raise
 
@@ -79,36 +105,68 @@ class DocumentProcessingService:
             "chunking_version": self.chunker.version,
         }
         for block in extraction.text_blocks:
-            for c in self.chunker.chunk_text(block.text, block.page_number):
-                payloads.append({
-                    "chunk_type": "text", "page_number": c["page_number"],
+            payloads.extend(
+                {
+                    "chunk_type": "text",
+                    "page_number": c["page_number"],
                     "content": c["content"],
-                    "metadata": {**base, "source": "pdf_text", "chunk_index": c["chunk_index"]},
-                })
+                    "metadata": {
+                        **base,
+                        "source": "pdf_text",
+                        "chunk_index": c["chunk_index"],
+                    },
+                }
+                for c in self.chunker.chunk_text(block.text, block.page_number)
+            )
         for table in extraction.tables:
-            for c in self.chunker.chunk_text(table.markdown, table.page_number, prefix="Extracted table"):
-                payloads.append({
-                    "chunk_type": "table", "page_number": c["page_number"],
+            payloads.extend(
+                {
+                    "chunk_type": "table",
+                    "page_number": c["page_number"],
                     "content": c["content"],
-                    "metadata": {**base, "source": "pdf_table", "chunk_index": c["chunk_index"]},
-                })
+                    "metadata": {
+                        **base,
+                        "source": "pdf_table",
+                        "chunk_index": c["chunk_index"],
+                    },
+                }
+                for c in self.chunker.chunk_text(
+                    table.markdown,
+                    table.page_number,
+                    prefix="Extracted table",
+                )
+            )
         for i, image in enumerate(extraction.images):
-            payloads.append({
-                "chunk_type": "image_caption", "page_number": image.page_number,
-                "content": image.caption,
-                "metadata": {**base, "source": "pdf_image", "chunk_index": i,
-                             "image_storage_path": image.storage_path},
-            })
+            payloads.append(
+                {
+                    "chunk_type": "image_caption",
+                    "page_number": image.page_number,
+                    "content": image.caption,
+                    "metadata": {
+                        **base,
+                        "source": "pdf_image",
+                        "chunk_index": i,
+                        "image_storage_path": image.storage_path,
+                    },
+                },
+            )
         return payloads
 
     @transaction.atomic
     def _save_chunks(self, document, payloads, embeddings) -> None:
         DocumentChunk.objects.filter(document=document).delete()
-        DocumentChunk.objects.bulk_create([
-            DocumentChunk(
-                document=document, company=document.company,
-                chunk_type=p["chunk_type"], page_number=p["page_number"],
-                content=p["content"], embedding=e, metadata=p["metadata"],
-            )
-            for p, e in zip(payloads, embeddings, strict=True)
-        ], batch_size=500)
+        DocumentChunk.objects.bulk_create(
+            [
+                DocumentChunk(
+                    document=document,
+                    company=document.company,
+                    chunk_type=p["chunk_type"],
+                    page_number=p["page_number"],
+                    content=p["content"],
+                    embedding=e,
+                    metadata=p["metadata"],
+                )
+                for p, e in zip(payloads, embeddings, strict=True)
+            ],
+            batch_size=500,
+        )

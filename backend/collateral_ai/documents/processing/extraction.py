@@ -1,4 +1,5 @@
 """PDF extraction: text + images (PyMuPDF), tables (pdfplumber)."""
+
 from __future__ import annotations
 
 import io
@@ -74,20 +75,28 @@ class PdfExtractionService:
                 for t_index, table in enumerate(page.extract_tables() or [], start=1):
                     md = self._table_to_markdown(table)
                     if md.strip():
-                        tables.append(ExtractedTable(
-                            page_number=i,
-                            markdown=f"Table {t_index} on page {i}\n\n{md}",
-                        ))
+                        tables.append(
+                            ExtractedTable(
+                                page_number=i,
+                                markdown=f"Table {t_index} on page {i}\n\n{md}",
+                            ),
+                        )
         return tables
 
     def _table_to_markdown(self, table: list[list[Any]]) -> str:
-        rows = [[("" if c is None else str(c).replace("\n", " ").strip()) for c in row]
-                for row in table if row]
+        rows = [
+            [("" if c is None else str(c).replace("\n", " ").strip()) for c in row]
+            for row in table
+            if row
+        ]
         if not rows:
             return ""
         cols = max(len(r) for r in rows)
         rows = [r + [""] * (cols - len(r)) for r in rows]
-        lines = ["| " + " | ".join(rows[0]) + " |", "| " + " | ".join(["---"] * cols) + " |"]
+        lines = [
+            "| " + " | ".join(rows[0]) + " |",
+            "| " + " | ".join(["---"] * cols) + " |",
+        ]
         lines += ["| " + " | ".join(r) + " |" for r in rows[1:]]
         return "\n".join(lines)
 
@@ -102,7 +111,11 @@ class PdfExtractionService:
                     try:
                         extracted = pdf.extract_image(xref)
                     except Exception:
-                        logger.exception("image extract failed xref=%s doc=%s", xref, document.id)
+                        logger.exception(
+                            "image extract failed xref=%s doc=%s",
+                            xref,
+                            document.id,
+                        )
                         continue
                     data = extracted.get("image")
                     ext = extracted.get("ext", "png")
@@ -113,11 +126,15 @@ class PdfExtractionService:
                         f"/images/page_{page_index}_image_{img_index}.{ext}"
                     )
                     self.storage.upload(path, data, self._content_type(ext))
-                    images.append(ExtractedImage(
-                        page_number=page_index,
-                        storage_path=path,
-                        caption=f"Image from page {page_index} of {document.file_name}.",
-                    ))
+                    images.append(
+                        ExtractedImage(
+                            page_number=page_index,
+                            storage_path=path,
+                            caption=(
+                                f"Image from page {page_index} of {document.file_name}."
+                            ),
+                        ),
+                    )
         return images
 
     def _content_type(self, ext: str) -> str:

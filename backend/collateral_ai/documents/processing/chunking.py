@@ -1,4 +1,5 @@
 """Deterministic word-overlap chunking (no LLM)."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -12,7 +13,12 @@ class ChunkingService:
         self.overlap_words = settings.DOCUMENT_CHUNK_OVERLAP_WORDS
         self.version = settings.DOCUMENT_CHUNKING_VERSION
 
-    def chunk_text(self, text: str, page_number: int, prefix: str = "") -> list[dict[str, Any]]:
+    def chunk_text(
+        self,
+        text: str,
+        page_number: int,
+        prefix: str = "",
+    ) -> list[dict[str, Any]]:
         words = text.split()
         if not words:
             return []
@@ -30,13 +36,15 @@ class ChunkingService:
             content = " ".join(words[start:end]).strip()
             if prefix:
                 content = f"{prefix}\n\n{content}"
-            chunks.append({
-                "page_number": page_number,
-                "chunk_index": chunk_index,
-                "content": content,
-                "word_start": start,
-                "word_end": end,
-            })
+            chunks.append(
+                {
+                    "page_number": page_number,
+                    "chunk_index": chunk_index,
+                    "content": content,
+                    "word_start": start,
+                    "word_end": end,
+                },
+            )
             chunk_index += 1
             if end >= num_words:
                 break

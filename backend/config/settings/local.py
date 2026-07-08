@@ -71,15 +71,17 @@ INSTALLED_APPS += ["django_extensions"]
 # Your stuff...
 # ------------------------------------------------------------------------------
 
-# drf-spectacular (plugin delta): serve the OpenAPI schema to anyone in LOCAL so the frontend's
-# `pnpm gen:api` can fetch it (cookiecutter defaults SERVE_PERMISSIONS to IsAdminUser → 403).
+# drf-spectacular (plugin delta): serve the OpenAPI schema to anyone in LOCAL
+# so the frontend's `pnpm gen:api` can fetch it (cookiecutter defaults
+# SERVE_PERMISSIONS to IsAdminUser → 403).
 # Production keeps the admin-only default from base.py.
-SPECTACULAR_SETTINGS = {  # noqa: F405
+SPECTACULAR_SETTINGS = {
     **globals().get("SPECTACULAR_SETTINGS", {}),
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
 }
 
-# GCS — local emulator parity for company logo signed URLs (see docker-compose gcs service).
+# GCS — local emulator parity for company logo signed URLs (see docker-compose
+# gcs service).
 # When these are unset (no emulator), companies.gcs.is_configured() is False and the
 # upload endpoint returns 503 gracefully.
 GS_BUCKET_NAME = env("DJANGO_GCP_STORAGE_BUCKET_NAME", default="")

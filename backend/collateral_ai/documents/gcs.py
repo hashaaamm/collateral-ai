@@ -1,8 +1,10 @@
 """GCS object paths for company documents.
 
-Reuses the companies signed-URL machinery (dual prod/emulator signing) so there is
-one signing code path in the project. Only the object-path convention is document-specific.
+Reuses the companies signed-URL machinery (dual prod/emulator signing) so there
+is one signing code path in the project. Only the object-path convention is
+document-specific.
 """
+
 from __future__ import annotations
 
 from pathlib import PurePosixPath

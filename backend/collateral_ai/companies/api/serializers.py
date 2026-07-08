@@ -9,7 +9,8 @@ class CompanySerializer(serializers.ModelSerializer[Company]):
     # Declared explicitly so the OpenAPI schema types brand_colors as string[]
     # (a bare JSONField would emit a loose type that breaks the typed frontend).
     brand_colors = serializers.ListField(
-        child=serializers.CharField(), required=False,
+        child=serializers.CharField(),
+        required=False,
     )
 
     class Meta:

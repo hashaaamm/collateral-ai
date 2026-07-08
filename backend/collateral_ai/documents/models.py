@@ -14,7 +14,11 @@ class Document(models.Model):
         related_name="documents",
     )
     file_name = models.CharField(_("file name"), max_length=255)
-    storage_path = models.CharField(_("storage object path"), max_length=512, blank=True)
+    storage_path = models.CharField(
+        _("storage object path"),
+        max_length=512,
+        blank=True,
+    )
     content_type = models.CharField(_("content type"), max_length=100)
     status = models.CharField(
         _("status"),
@@ -43,10 +47,14 @@ class DocumentChunk(models.Model):
     """One embedded chunk of a processed document (text, table, or image caption)."""
 
     document = models.ForeignKey(
-        Document, on_delete=models.CASCADE, related_name="chunks",
+        Document,
+        on_delete=models.CASCADE,
+        related_name="chunks",
     )
     company = models.ForeignKey(
-        "companies.Company", on_delete=models.CASCADE, related_name="document_chunks",
+        "companies.Company",
+        on_delete=models.CASCADE,
+        related_name="document_chunks",
     )
     chunk_type = models.CharField(_("chunk type"), max_length=32)
     page_number = models.PositiveIntegerField()

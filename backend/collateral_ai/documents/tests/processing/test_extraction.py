@@ -14,7 +14,10 @@ class _Doc:
 
 def test_extract_text_and_page_count():
     storage = mock.Mock()
-    result = PdfExtractionService(storage=storage).extract(make_pdf("Alpha Beta Gamma"), _Doc())
+    result = PdfExtractionService(storage=storage).extract(
+        make_pdf("Alpha Beta Gamma"),
+        _Doc(),
+    )
     assert result.page_count == 1
     joined = " ".join(b.text for b in result.text_blocks)
     assert "Alpha Beta Gamma" in joined

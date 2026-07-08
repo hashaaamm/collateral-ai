@@ -1,9 +1,10 @@
 """Generate a throwaway service-account key for LOCAL GCS signing.
 
-fake-gcs-server ignores the signature, so this key authorizes nothing — it only lets
-google-cloud-storage compute a V4 signature offline. Regenerated on each container start;
-never committed.
+fake-gcs-server ignores the signature, so this key authorizes nothing — it
+only lets google-cloud-storage compute a V4 signature offline. Regenerated on
+each container start; never committed.
 """
+
 from __future__ import annotations
 
 import json

@@ -1,3 +1,5 @@
+import contextlib
+
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import inline_serializer
@@ -98,7 +100,10 @@ class DocumentViewSet(
         doc.save(update_fields=["storage_path", "updated_at"])
         upload_url = gcs.signed_upload_url(object_path, content_type)
         data = self.get_serializer(doc).data
-        return Response({**data, "upload_url": upload_url}, status=status.HTTP_201_CREATED)
+        return Response(
+            {**data, "upload_url": upload_url},
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         request=None,
@@ -110,14 +115,14 @@ class DocumentViewSet(
         doc.status = DocumentStatus.PROCESSING
         doc.error_message = ""
         doc.save(update_fields=["status", "error_message", "updated_at"])
-        # trigger_processing runs the pipeline INLINE (synchronous, in this request thread) when
-        # DOCUMENT_PROCESSOR_JOB is unset — dev/local convenience. In prod it fires a Cloud Run Job
-        # and returns immediately. Either way the worker sets the row to failed on error, so we
-        # always report 202 and let the client poll the document's status.
-        try:
+        # trigger_processing runs the pipeline INLINE (synchronous, in this
+        # request thread) when DOCUMENT_PROCESSOR_JOB is unset — dev/local
+        # convenience. In prod it fires a Cloud Run Job and returns
+        # immediately. Either way the worker sets the row to failed on error,
+        # so we always report 202 and let the client poll the document's
+        # status.
+        with contextlib.suppress(Exception):
             trigger_processing(doc)
-        except Exception:  # noqa: BLE001 — worker marks the row failed; report 202 either way
-            pass
         doc.refresh_from_db()
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
 

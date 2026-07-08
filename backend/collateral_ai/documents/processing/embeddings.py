@@ -1,9 +1,13 @@
 """Gemini embeddings via Vertex AI (keyless ADC)."""
+
 from __future__ import annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from django.conf import settings
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 class EmbeddingService:
@@ -27,7 +31,8 @@ class EmbeddingService:
     def embed_query(self, query: str) -> list[float]:
         out = self._embed([query], task_type="RETRIEVAL_QUERY")
         if not out:
-            raise ValueError("Gemini returned no query embedding.")
+            msg = "Gemini returned no query embedding."
+            raise ValueError(msg)
         return out[0]
 
     def _embed(self, texts: list[str], task_type: str) -> list[list[float]]:
@@ -48,13 +53,16 @@ class EmbeddingService:
                 ),
             )
             if not resp.embeddings:
-                raise RuntimeError("Gemini returned no embeddings for batch.")
+                msg = "Gemini returned no embeddings for batch."
+                raise RuntimeError(msg)
             for emb in resp.embeddings:
                 values = list(emb.values)
                 if len(values) != self.dimensions:
-                    raise ValueError(
-                        f"embedding dim mismatch expected={self.dimensions} actual={len(values)}",
+                    msg = (
+                        f"embedding dim mismatch "
+                        f"expected={self.dimensions} actual={len(values)}"
                     )
+                    raise ValueError(msg)
                 out.append(self._normalize(values))
         return out
 
@@ -64,4 +72,4 @@ class EmbeddingService:
 
     def _batched(self, values: list[str], size: int) -> Iterable[list[str]]:
         for i in range(0, len(values), size):
-            yield values[i:i + size]
+            yield values[i : i + size]

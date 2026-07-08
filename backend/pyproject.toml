@@ -150,6 +150,16 @@ lint.ignore = [
 ]
 lint.isort.force-single-line = true
 
+[tool.ruff.lint.per-file-ignores]
+# Magic numbers in test assertions are idiomatic.
+"**/tests/**" = ["PLR2004"]
+# Deliberate lazy imports of heavy libs (fitz, pdfplumber, google.genai,
+# google.cloud.run_v2) so Django startup stays fast.
+"collateral_ai/documents/processing/*" = ["PLC0415"]
+"collateral_ai/documents/worker_trigger.py" = ["PLC0415"]
+# Standalone scripts, not a package.
+"scripts/*" = ["INP001"]
+
 # ==== pyproject-fmt ====
 [tool.pyproject-fmt]
 keep_full_version = true
