@@ -52,6 +52,15 @@ export async function deleteDocument(companyId: number, id: number): Promise<voi
   if (error) throw new Error("delete_failed");
 }
 
+export async function getDocumentDownloadUrl(companyId: number, id: number): Promise<string> {
+  const { data, error } = await api.GET(
+    "/api/companies/{company_pk}/documents/{id}/download-url/",
+    { params: { path: { company_pk: companyId, id } } },
+  );
+  if (error || !data) throw new Error("download_unavailable");
+  return data.url;
+}
+
 export function useDeleteDocument() {
   const qc = useQueryClient();
   return useMutation({
