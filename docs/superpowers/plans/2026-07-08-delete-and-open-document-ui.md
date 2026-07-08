@@ -36,7 +36,7 @@ A and B run concurrently. C follows once A and B land.
 - Test: `backend/collateral_ai/documents/tests/api/test_views.py`
 
 **Interfaces:**
-- Consumes: `collateral_ai.companies.gcs.signed_get_url(object_path) -> str` (exists, V4 GET, 15-min expiry); `gcs.is_configured() -> bool`.
+- Consumes: `collateral_ai.companies.gcs.signed_get_url(object_path) -> str` (exists, V4 GET, 1-hour expiry); `gcs.is_configured() -> bool`.
 - Produces: route `GET /api/companies/{company_pk}/documents/{id}/download-url/` → `200 {"url": str}` when configured & doc has `storage_path`, else `503 {"detail": str}`. Scoped to company (404 for another company's doc via existing `get_queryset`).
 
 - [ ] **Step 1: Write the failing tests**

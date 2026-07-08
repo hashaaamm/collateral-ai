@@ -31,14 +31,21 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
   async function onOpen(d: Document) {
     setError("");
     setOpeningId(d.id);
-    // Open the tab synchronously so the browser doesn't block it, then point
-    // it at the signed URL once it resolves.
-    const w = window.open("", "_blank", "noopener,noreferrer");
+    // Open the tab synchronously (before the await) so the browser doesn't treat
+    // it as a popup. Note: passing "noopener" to window.open makes it return null,
+    // so we keep the handle and null `opener` ourselves before navigating.
+    const w = window.open("", "_blank");
+    if (!w) {
+      setError("Couldn't open the document. Allow pop-ups and try again.");
+      setOpeningId(null);
+      return;
+    }
     try {
       const url = await getDocumentDownloadUrl(companyId, d.id);
-      if (w) w.location.href = url;
+      w.opener = null;
+      w.location.href = url;
     } catch {
-      w?.close();
+      w.close();
       setError("Couldn't open the document. Try again.");
     } finally {
       setOpeningId(null);
@@ -140,6 +147,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
                           <ArrowClockwise size={13} /> Retry
                         </button>
                       )}
+                      {/* Every listed doc has a storage object (set at create time), so Open is always shown. */}
                       <button
                         type="button"
                         disabled={openingId === d.id}

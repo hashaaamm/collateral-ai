@@ -25,7 +25,7 @@ Three related UI changes on the company-detail surface:
   filename in body, Cancel + red Delete buttons). Line 282 shows the per-row
   "Open in new tab" button (`ph-arrow-square-out`).
 - Backend: `collateral_ai/companies/gcs.py` already has
-  `signed_get_url(object_path)` (V4 GET, 15-min `GET_EXPIRY`).
+  `signed_get_url(object_path)` (V4 GET, 1-hour `GET_EXPIRY`).
   `collateral_ai/documents/gcs.py` re-exports upload/delete/is_configured but
   **not** `signed_get_url`. No download endpoint exists yet.
 - `DocumentViewSet` (`collateral_ai/documents/api/views.py`) is a

@@ -84,6 +84,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    // Hand-authored: a real `pnpm gen:api` run would emit a named `DocumentDownloadResponse` component `$ref` here instead of this inline `{ url: string }` body (consumer stays compatible).
     "/api/companies/{company_pk}/documents/{id}/download-url/": {
         parameters: {
             query?: never;
