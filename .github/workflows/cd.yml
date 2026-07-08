@@ -20,6 +20,7 @@ env:
   REGION: "us-central1"
   AR_REPO: "us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/collateral-ai-repo"
   RUN_SA_EMAIL: cloud-run-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+  DOCPROC_JOB: collateral-ai-backend-docproc
 
 permissions:
   contents: read
@@ -74,11 +75,27 @@ jobs:
             --vpc-connector collateral-ai-connector \
             --add-cloudsql-instances ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
             --set-secrets DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest \
-            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@CORS_ALLOWED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@CSRF_TRUSTED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}" \
+            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@CORS_ALLOWED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@CSRF_TRUSTED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}@DOCUMENT_PROCESSOR_REGION=$REGION@DOCUMENT_PROCESSOR_JOB=$DOCPROC_JOB" \
             --cpu 1 --memory 512Mi --concurrency 80 --min-instances 0 --max-instances 4 \
             --timeout 300 --allow-unauthenticated
             # Cost note: min-instances 0 scales to zero (cold starts). Bump cpu/memory/min-instances
             # only after confirming cost. See deploy/env-template SIZING section.
+      - name: Deploy document-processor Cloud Run Job
+        # Persistent Job the web service triggers (via worker_trigger) to process an uploaded PDF
+        # off the request thread. The wrapper passes a container override adding --document-id N,
+        # so the base args here are just `manage.py process_document`; --command is `python`.
+        run: |
+          gcloud run jobs deploy $DOCPROC_JOB \
+            --image $AR_REPO/backend:${{ github.sha }} \
+            --region $REGION \
+            --service-account $RUN_SA_EMAIL \
+            --vpc-connector collateral-ai-connector \
+            --set-cloudsql-instances ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
+            --set-secrets DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest \
+            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}@VERTEX_LOCATION=$REGION" \
+            --command python \
+            --args manage.py,process_document \
+            --cpu 2 --memory 2Gi --max-retries 1 --task-timeout 900
 
   # React SPA hosted on GCS + Cloud CDN (FRONTEND_HOSTING=gcs). Static Vite build → rsync to the
   # bucket → invalidate the CDN. (No Cloud Run frontend service for this stack.)
