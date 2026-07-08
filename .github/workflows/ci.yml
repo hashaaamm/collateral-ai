@@ -25,6 +25,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - '.pre-commit-config.yaml'
             frontend:
               - 'frontend/**'
 
@@ -36,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: pre-commit/action@v3.0.1
 
   backend-test:
@@ -48,6 +49,23 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+      - name: Create env files (gitignored locally, absent in CI)
+        # docker-compose.local.yml references these via env_file; even `down` fails to
+        # parse the compose model without them. CI-only throwaway values.
+        run: |
+          mkdir -p .envs/.local ../.envs/.local
+          {
+            echo "USE_DOCKER=yes"
+            echo "IPYTHONDIR=/app/.ipython"
+          } > .envs/.local/.django
+          {
+            echo "POSTGRES_HOST=postgres"
+            echo "POSTGRES_PORT=5432"
+            echo "POSTGRES_DB=collateral_ai"
+            echo "POSTGRES_USER=ci_user"
+            echo "POSTGRES_PASSWORD=ci_only_password"
+          } > .envs/.local/.postgres
+          echo "VITE_API_URL=http://localhost:8000" > ../.envs/.local/.frontend
       - name: Build stack
         run: docker compose -f ../docker-compose.local.yml build django postgres
       - name: Check migrations
