@@ -21,6 +21,7 @@ import { CreatePage } from "@/routes/create";
 import { MaterialsPage } from "@/routes/materials";
 import { MaterialDetailPage } from "@/routes/material-detail";
 import { TemplatesPage } from "@/routes/templates";
+import { TemplateNewPage } from "@/routes/template-new";
 
 /** Bare root — each group provides its own chrome (or none). */
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
@@ -127,6 +128,11 @@ const templatesRoute = createRoute({
   path: "/templates",
   component: TemplatesPage,
 });
+const templateNewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/templates/new",
+  component: TemplateNewPage,
+});
 
 const routeTree = rootRoute.addChildren([
   marketingRoute.addChildren([indexRoute, aboutRoute]),
@@ -141,6 +147,7 @@ const routeTree = rootRoute.addChildren([
     materialsRoute,
     materialDetailRoute,
     templatesRoute,
+    templateNewRoute,
   ]),
 ]);
 
