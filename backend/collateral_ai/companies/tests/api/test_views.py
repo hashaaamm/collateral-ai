@@ -188,6 +188,15 @@ def test_delete_without_logo_skips_cleanup(auth_client):
     delete_object.assert_not_called()
 
 
+def test_company_list_includes_last_updated(auth_client):
+    CompanyFactory()
+    response = auth_client.get("/api/companies/")
+    assert response.status_code == HTTPStatus.OK
+    row = response.json()[0]
+    assert "last_updated" in row
+    assert row["last_updated"] is not None
+
+
 def test_patch_and_delete_require_auth():
     company = CompanyFactory()
     patch_resp = APIClient().patch(f"/api/companies/{company.pk}/", {}, format="json")

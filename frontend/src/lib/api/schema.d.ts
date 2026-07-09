@@ -240,6 +240,8 @@ export interface components {
             readonly logo_url: string | null;
             /** Format: date-time */
             readonly created_at: string;
+            /** Format: date-time */
+            readonly last_updated: string;
         };
         /** @description Read-only aggregate counts for the dashboard stat cards. */
         DashboardStats: {
@@ -306,6 +308,8 @@ export interface components {
             readonly logo_url?: string | null;
             /** Format: date-time */
             readonly created_at?: string;
+            /** Format: date-time */
+            readonly last_updated?: string;
         };
         PatchedUser: {
             /** Name of User */
