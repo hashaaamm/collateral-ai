@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   ArrowsClockwise,
   CaretRight,
@@ -199,8 +200,16 @@ export function MaterialDetailPage() {
   const output = outputJson(material);
   const generating = isGenerating(material);
   const completed = material.generation_status === "completed";
-  const copyJson = () =>
-    void navigator.clipboard.writeText(JSON.stringify(material.output_json, null, 2));
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        JSON.stringify(material.output_json, null, 2),
+      );
+      toast.success("Layout JSON copied to clipboard");
+    } catch {
+      toast.error("Couldn't copy JSON to clipboard");
+    }
+  };
   const setReview = (value: "approved" | "rejected") =>
     update.mutate({
       review_status: material.review_status === value ? "pending" : value,
