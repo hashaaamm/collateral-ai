@@ -218,3 +218,13 @@ def test_view_url_404_when_no_storage_path(auth_client):
     ):
         resp = auth_client.get(f"{docs_url(doc.company_id)}{doc.pk}/view-url/")
     assert resp.status_code == HTTPStatus.NOT_FOUND
+
+def test_view_url_scoped_to_company(auth_client):
+    company_a, company_b = CompanyFactory(), CompanyFactory()
+    doc_b = DocumentFactory(company=company_b)
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured",
+        return_value=True,
+    ):
+        resp = auth_client.get(f"{docs_url(company_a.pk)}{doc_b.pk}/view-url/")
+    assert resp.status_code == HTTPStatus.NOT_FOUND

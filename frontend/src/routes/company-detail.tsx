@@ -5,17 +5,8 @@ import { CaretRight, Globe, PencilSimple, Trash } from "@phosphor-icons/react";
 import { CompanyLogo } from "@/components/company-logo";
 import { DocumentsTab } from "@/components/documents-tab";
 import { MaterialsTab } from "@/components/materials-tab";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { LoadingState } from "@/components/ui/spinner";
 import { useCompany, useDeleteCompany } from "@/lib/api/companies";
 
 const TABS = ["Overview", "Documents", "Generated Materials"] as const;
@@ -38,9 +29,14 @@ export function CompanyDetailPage() {
   const navigate = useNavigate();
   const del = useDeleteCompany();
   const [tab, setTab] = useState<Tab>("Overview");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (isLoading) {
-    return <div className="mx-auto max-w-[1080px] px-10 pt-8 text-sm text-mute">Loading…</div>;
+    return (
+      <div className="mx-auto max-w-[1080px] px-10 pt-8">
+        <LoadingState />
+      </div>
+    );
   }
   if (isError || !company) {
     return (
@@ -95,30 +91,14 @@ export function CompanyDetailPage() {
             <PencilSimple size={15} />
             Edit
           </Link>
-          <AlertDialog>
-            <AlertDialogTrigger className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-destructive hover:bg-subtle">
-              <Trash size={15} />
-              Delete
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete {company.name}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes the company and its logo. This can't be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() =>
-                    del.mutate(company.id, { onSuccess: () => navigate({ to: "/companies" }) })
-                  }
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-destructive hover:bg-subtle"
+          >
+            <Trash size={15} />
+            Delete
+          </button>
         </div>
       </div>
 
@@ -169,6 +149,26 @@ export function CompanyDetailPage() {
       )}
       {tab === "Documents" && <DocumentsTab companyId={Number(companyId)} />}
       {tab === "Generated Materials" && <MaterialsTab companyId={Number(companyId)} />}
+
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${company.name}?`}
+        description={
+          <>
+            This permanently removes the company and its logo. This can&apos;t be undone.
+          </>
+        }
+        loading={del.isPending}
+        onConfirm={() =>
+          del.mutate(company.id, {
+            onSuccess: () => {
+              setDeleteOpen(false);
+              navigate({ to: "/companies" });
+            },
+          })
+        }
+      />
     </div>
   );
 }

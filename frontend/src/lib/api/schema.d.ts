@@ -133,6 +133,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dashboard/stats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Aggregate counts powering the dashboard's stat cards. */
+        get: operations["dashboard_stats_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/materials/": {
         parameters: {
             query?: never;
@@ -307,11 +324,19 @@ export interface components {
             readonly logo_url: string | null;
             /** Format: date-time */
             readonly created_at: string;
+            /** Format: date-time */
+            readonly last_updated: string;
         };
         CompanySummary: {
             readonly id: number;
             name: string;
             readonly logo_url: string | null;
+        };
+        /** @description Read-only aggregate counts for the dashboard stat cards. */
+        DashboardStats: {
+            companies_count: number;
+            documents_processed: number;
+            documents_processing: number;
         };
         Document: {
             readonly id: number;
@@ -447,6 +472,8 @@ export interface components {
             readonly logo_url?: string | null;
             /** Format: date-time */
             readonly created_at?: string;
+            /** Format: date-time */
+            readonly last_updated?: string;
         };
         PatchedMaterialUpdate: {
             readonly id?: number;
@@ -845,6 +872,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogoUploadUrl"];
+                };
+            };
+        };
+    };
+    dashboard_stats_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardStats"];
                 };
             };
         };

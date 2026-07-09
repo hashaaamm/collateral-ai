@@ -1,5 +1,6 @@
 import { useCurrentUser } from "@/lib/api/queries";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Card,
   CardContent,
@@ -32,7 +33,11 @@ export function HomePage() {
         <CardContent className="space-y-4">
           <p className="text-sm">
             {isLoading
-              ? "Loading current user…"
+              ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner size={14} /> Loading current user…
+                </span>
+              )
               : isError
                 ? "Not signed in (the example /api/users/me/ call returned an error — expected until you authenticate)."
                 : `Signed in as ${user?.name || "unknown"}.`}

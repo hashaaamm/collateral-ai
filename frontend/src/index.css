@@ -35,6 +35,8 @@
   --color-danger-soft: #fbe9e9;
   --color-review: #7c3aed;       /* Needs-review pill (design violet) */
   --color-review-soft: #f1eafe;
+  --color-draft: #52525b;
+  --color-draft-soft: #f0f0f2;
 
   --shadow-login: 0 12px 40px -12px rgba(20, 20, 40, 0.12);
 }
