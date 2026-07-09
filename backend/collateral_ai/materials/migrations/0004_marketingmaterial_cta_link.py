@@ -13,6 +13,8 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="marketingmaterial",
             name="cta_link",
-            field=models.URLField(blank=True, default="", verbose_name="cta link"),
+            field=models.URLField(
+                blank=True, default="", max_length=500, verbose_name="cta link"
+            ),
         ),
     ]
