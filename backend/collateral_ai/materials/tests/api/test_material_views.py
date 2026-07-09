@@ -251,7 +251,9 @@ def test_delete_material(auth_client):
 def test_create_accepts_valid_cta_link(auth_client):
     sender, receiver = companies_with_docs()
     template = TemplateFactory()
-    body = create_body(sender, receiver, template) | {"cta_link": "https://example.com/demo"}
+    body = create_body(sender, receiver, template) | {
+        "cta_link": "https://example.com/demo",
+    }
     with mock.patch(TRIGGER, return_value="operations/abc"):
         resp = auth_client.post(URL, body, format="json")
     assert resp.status_code == HTTPStatus.CREATED

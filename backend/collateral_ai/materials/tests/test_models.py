@@ -76,7 +76,5 @@ def test_material_delete_cascades_sources():
 
 
 def test_cta_link_defaults_blank():
-    from collateral_ai.materials.tests.factories import MarketingMaterialFactory
-
     material = MarketingMaterialFactory()
     assert material.cta_link == ""

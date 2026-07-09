@@ -14,6 +14,7 @@ from collateral_ai.materials.models import GenerationSource
 from collateral_ai.materials.statuses import GenerationStatus
 from collateral_ai.materials.statuses import ReviewStatus
 from collateral_ai.materials.tests.factories import MarketingMaterialFactory
+from collateral_ai.materials.tests.factories import TemplateFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -150,34 +151,25 @@ def test_command_skip_exits_zero():
 
 
 def test_stamp_injects_cta_url_when_link_present():
-    from collateral_ai.materials.generation.service import MaterialGenerationService
-    from collateral_ai.materials.tests.factories import (
-        MarketingMaterialFactory,
-        TemplateFactory,
-    )
-
     template = TemplateFactory()
-    material = MarketingMaterialFactory(template=template, cta_link="https://example.com/demo")
+    material = MarketingMaterialFactory(
+        template=template,
+        cta_link="https://example.com/demo",
+    )
     service = MaterialGenerationService.__new__(MaterialGenerationService)
     output = {"article": {"cta": "Book a demo"}}
 
-    stamped = service._stamp(output, template, material)
+    stamped = service._stamp(output, template, material)  # noqa: SLF001
 
     assert stamped["article"]["cta_url"] == "https://example.com/demo"
 
 
 def test_stamp_omits_cta_url_when_link_blank():
-    from collateral_ai.materials.generation.service import MaterialGenerationService
-    from collateral_ai.materials.tests.factories import (
-        MarketingMaterialFactory,
-        TemplateFactory,
-    )
-
     template = TemplateFactory()
     material = MarketingMaterialFactory(template=template, cta_link="")
     service = MaterialGenerationService.__new__(MaterialGenerationService)
     output = {"article": {"cta": "Book a demo"}}
 
-    stamped = service._stamp(output, template, material)
+    stamped = service._stamp(output, template, material)  # noqa: SLF001
 
     assert "cta_url" not in stamped["article"]
