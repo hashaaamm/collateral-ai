@@ -84,7 +84,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    // Hand-authored: a real `pnpm gen:api` run would emit a named `DocumentDownloadResponse` component `$ref` here instead of this inline `{ url: string }` body (consumer stays compatible).
     "/api/companies/{company_pk}/documents/{id}/download-url/": {
         parameters: {
             query?: never;
@@ -127,6 +126,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["companies_logo_upload_url_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dashboard/stats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Aggregate counts powering the dashboard's stat cards. */
+        get: operations["dashboard_stats_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -225,6 +241,12 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /** @description Read-only aggregate counts for the dashboard stat cards. */
+        DashboardStats: {
+            companies_count: number;
+            documents_processed: number;
+            documents_processing: number;
+        };
         Document: {
             readonly id: number;
             readonly company: number;
@@ -258,6 +280,10 @@ export interface components {
             created_at: string;
             /** Format: uri */
             upload_url: string;
+        };
+        DocumentDownloadResponse: {
+            /** Format: uri */
+            url: string;
         };
         LogoUploadUrl: {
             /** Format: uri */
@@ -504,6 +530,7 @@ export interface operations {
             header?: never;
             path: {
                 company_pk: number;
+                /** @description A unique integer value identifying this document. */
                 id: number;
             };
             cookie?: never;
@@ -515,9 +542,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        url: string;
-                    };
+                    "application/json": components["schemas"]["DocumentDownloadResponse"];
                 };
             };
         };
@@ -642,6 +667,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogoUploadUrl"];
+                };
+            };
+        };
+    };
+    dashboard_stats_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardStats"];
                 };
             };
         };
