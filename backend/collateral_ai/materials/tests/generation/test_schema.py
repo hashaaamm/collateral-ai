@@ -37,3 +37,11 @@ def test_schema_shape_and_slot_enum():
     body = schema["properties"]["article"]["properties"]["body_sections"]
     assert body["minItems"] == 2
     assert body["maxItems"] == 2
+
+
+def test_schema_empty_slots_omits_enum():
+    schema = build_response_schema(constraints=CONSTRAINTS, image_slots=[])
+    slots = schema["properties"]["image_slots"]
+    assert slots["minItems"] == 0
+    assert slots["maxItems"] == 0
+    assert "enum" not in slots["items"]["properties"]["slot_id"]

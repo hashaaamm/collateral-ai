@@ -23,6 +23,11 @@ def build_response_schema(
 ) -> dict[str, Any]:
     section_count = int(constraints["body_section_count"])
     slot_ids = [slot["slot_id"] for slot in image_slots]
+    slot_id_property: dict[str, Any] = {"type": "STRING"}
+    if slot_ids:
+        # Vertex's OpenAPI subset rejects an empty "enum": []; only constrain
+        # slot_id when there are slot ids to constrain it to.
+        slot_id_property["enum"] = slot_ids
     return {
         "type": "OBJECT",
         "properties": {
@@ -55,7 +60,7 @@ def build_response_schema(
                 "items": {
                     "type": "OBJECT",
                     "properties": {
-                        "slot_id": {"type": "STRING", "enum": slot_ids},
+                        "slot_id": slot_id_property,
                         "description": {"type": "STRING"},
                         "source": {"type": "STRING", "enum": SLOT_SOURCE_VALUES},
                     },

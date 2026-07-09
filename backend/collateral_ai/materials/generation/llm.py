@@ -43,6 +43,10 @@ class GenerationClient:
                 max_output_tokens=self.max_output_tokens,
                 response_mime_type="application/json",
                 response_schema=response_schema,
+                # Thinking is disabled so the full token budget goes to the JSON
+                # output (spec'd marketing copy needs no chain-of-thought;
+                # budget is env-tunable).
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         text = getattr(response, "text", None)

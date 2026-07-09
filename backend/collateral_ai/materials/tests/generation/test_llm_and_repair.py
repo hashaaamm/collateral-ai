@@ -69,6 +69,7 @@ def test_generation_client_parses_json_response(settings):
     assert result == {"ok": True}
     config = client_cls.return_value.models.generate_content.call_args.kwargs["config"]
     assert config.response_mime_type == "application/json"
+    assert config.thinking_config.thinking_budget == 0
 
 
 def test_generation_client_raises_on_empty_and_invalid_json(settings):
