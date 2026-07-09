@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Buildings, Globe, Plus, UploadSimple, X } from "@phosphor-icons/react";
 import { z } from "zod";
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { requestUploadAndPut } from "@/lib/api/companies";
@@ -59,6 +60,7 @@ export function CompanyForm({
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "error" | "unavailable">(
     "idle",
   );
+  const [pendingColorRemove, setPendingColorRemove] = useState<number | null>(null);
 
   const {
     register,
@@ -160,7 +162,7 @@ export function CompanyForm({
                     onChange={(e) => setColors((c) => c.map((x, j) => (j === i ? e.target.value : x)))}
                     className="size-[34px] cursor-pointer rounded-lg border border-hairline"
                   />
-                  <button type="button" onClick={() => setColors((c) => c.filter((_, j) => j !== i))} className="absolute -right-1 -top-1 rounded-full bg-surface text-mute" aria-label="Remove color">
+                  <button type="button" onClick={() => setPendingColorRemove(i)} className="absolute -right-1 -top-1 rounded-full bg-surface text-mute" aria-label="Remove color">
                     <X size={12} />
                   </button>
                 </span>
@@ -187,6 +189,20 @@ export function CompanyForm({
           {submitting ? "Saving…" : <>{submitLabel} <ArrowRight weight="bold" size={14} /></>}
         </Button>
       </div>
+
+      <ConfirmDeleteDialog
+        open={pendingColorRemove !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingColorRemove(null);
+        }}
+        title="Remove color?"
+        description="This color will be removed from the brand palette."
+        confirmLabel="Remove"
+        onConfirm={() => {
+          setColors((c) => c.filter((_, j) => j !== pendingColorRemove));
+          setPendingColorRemove(null);
+        }}
+      />
     </form>
   );
 }

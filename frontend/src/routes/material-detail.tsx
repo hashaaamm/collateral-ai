@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { MaterialJson } from "@/components/material-json";
 import { MaterialSources } from "@/components/material-sources";
 import { NewsletterPreview } from "@/components/newsletter-preview";
@@ -165,6 +166,7 @@ export function MaterialDetailPage() {
   const { data: material, isLoading, isError } = useMaterial(Number(materialId));
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("Preview");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const update = useUpdateMaterial(Number(materialId));
   const regenerate = useRegenerateMaterial(Number(materialId));
   const del = useDeleteMaterial();
@@ -363,33 +365,26 @@ export function MaterialDetailPage() {
                   <Copy size={15} />
                   Copy JSON
                 </button>
-                <AlertDialog>
-                  <AlertDialogTrigger className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-destructive hover:bg-subtle">
-                    <Trash size={15} />
-                    Delete material
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete material?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This removes the generated content, layout JSON and source
-                        references. This can't be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() =>
-                          del.mutate(material.id, {
-                            onSuccess: () => navigate({ to: "/materials" }),
-                          })
-                        }
-                      >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-destructive hover:bg-subtle"
+                >
+                  <Trash size={15} />
+                  Delete material
+                </button>
+                <ConfirmDeleteDialog
+                  open={confirmDelete}
+                  onOpenChange={setConfirmDelete}
+                  title="Delete material?"
+                  description="This removes the generated content, layout JSON and source references. This can't be undone."
+                  loading={del.isPending}
+                  onConfirm={() =>
+                    del.mutate(material.id, {
+                      onSuccess: () => navigate({ to: "/materials" }),
+                    })
+                  }
+                />
               </div>
             </RailCard>
           </div>

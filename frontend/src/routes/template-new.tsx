@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CaretRight, Check, Image, Lock, Minus, Plus, TextT, Trash } from "@phosphor-icons/react";
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import {
   createMaterialErrorText as errorText,
 } from "@/lib/api/materials";
@@ -80,6 +81,11 @@ export function TemplateNewPage() {
   const [primary, setPrimary] = useState("#5b5bd6");
   const [accent, setAccent] = useState("#0f172a");
   const [error, setError] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{
+    title: string;
+    description: ReactNode;
+    onConfirm: () => void;
+  } | null>(null);
 
   const create = useCreateTemplate();
   const navigate = useNavigate();
@@ -227,7 +233,12 @@ export function TemplateNewPage() {
                   label={`body section ${i + 1}`}
                 />,
                 bodyRows > BOUNDS.bodyRows.min
-                  ? () => setBodyRows(bodyRows - 1)
+                  ? () =>
+                      setPendingRemove({
+                        title: "Remove field?",
+                        description: `Body section ${i + 1} will be removed from this template.`,
+                        onConfirm: () => setBodyRows(bodyRows - 1),
+                      })
                   : undefined,
               ),
             )}
@@ -287,7 +298,13 @@ export function TemplateNewPage() {
                 </select>
                 <button
                   type="button"
-                  onClick={() => setSlots(slots.filter((_, j) => j !== i))}
+                  onClick={() =>
+                    setPendingRemove({
+                      title: "Remove image slot?",
+                      description: `${slot.label.trim() || "This image slot"} will be removed from this template.`,
+                      onConfirm: () => setSlots(slots.filter((_, j) => j !== i)),
+                    })
+                  }
                   className="text-mute hover:text-destructive"
                   aria-label={`remove slot ${slot.label.trim() || i + 1}`}
                 >
@@ -395,6 +412,20 @@ export function TemplateNewPage() {
           Save template
         </button>
       </div>
+
+      <ConfirmDeleteDialog
+        open={pendingRemove !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingRemove(null);
+        }}
+        title={pendingRemove?.title ?? ""}
+        description={pendingRemove?.description ?? null}
+        confirmLabel="Remove"
+        onConfirm={() => {
+          pendingRemove?.onConfirm();
+          setPendingRemove(null);
+        }}
+      />
     </div>
   );
 }
