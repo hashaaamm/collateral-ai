@@ -153,6 +153,7 @@ lint.per-file-ignores."**/tests/**" = [ "PLR2004" ]
 # google.cloud.run_v2) so Django startup stays fast.
 lint.per-file-ignores."collateral_ai/documents/processing/*" = [ "PLC0415" ]
 lint.per-file-ignores."collateral_ai/documents/worker_trigger.py" = [ "PLC0415" ]
+lint.per-file-ignores."collateral_ai/materials/worker_trigger.py" = [ "PLC0415" ]
 # Standalone scripts, not a package.
 lint.per-file-ignores."scripts/*" = [ "INP001" ]
 lint.isort.force-single-line = true

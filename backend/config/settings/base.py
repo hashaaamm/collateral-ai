@@ -338,3 +338,21 @@ DOCUMENT_CHUNKING_VERSION = env("DOCUMENT_CHUNKING_VERSION", default="v1")
 # When set (prod), `complete` executes this Cloud Run Job instead of running the worker inline.
 DOCUMENT_PROCESSOR_JOB = env("DOCUMENT_PROCESSOR_JOB", default="")
 DOCUMENT_PROCESSOR_REGION = env("DOCUMENT_PROCESSOR_REGION", default="us-central1")
+
+# Material generation (worker 2)
+# ------------------------------------------------------------------------------
+# When set (prod), material create/regenerate executes this Cloud Run Job instead
+# of running the worker inline.
+MATERIAL_GENERATOR_JOB = env("MATERIAL_GENERATOR_JOB", default="")
+MATERIAL_GENERATOR_REGION = env("MATERIAL_GENERATOR_REGION", default="us-central1")
+MATERIAL_LLM_MODEL = env("MATERIAL_LLM_MODEL", default="gemini-2.5-flash")
+MATERIAL_GENERATION_TEMPERATURE = env.float(
+    "MATERIAL_GENERATION_TEMPERATURE",
+    default=0.2,
+)
+MATERIAL_GENERATION_MAX_OUTPUT_TOKENS = env.int(
+    "MATERIAL_GENERATION_MAX_OUTPUT_TOKENS",
+    default=4096,
+)
+MATERIAL_RETRIEVAL_TOP_K = env.int("MATERIAL_RETRIEVAL_TOP_K", default=8)
+MATERIAL_MAX_REPAIR_ATTEMPTS = env.int("MATERIAL_MAX_REPAIR_ATTEMPTS", default=2)

@@ -4,7 +4,14 @@ import re
 
 from rest_framework import serializers
 
+from collateral_ai.companies import gcs as companies_gcs
+from collateral_ai.companies.models import Company
+from collateral_ai.documents.models import Document
+from collateral_ai.documents.statuses import DocumentStatus
+from collateral_ai.materials.models import GenerationSource
+from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.models import Template
+from collateral_ai.materials.statuses import GenerationStatus
 
 # (min, max) for each required constraint key — spec §5.1.
 CONSTRAINT_BOUNDS: dict[str, tuple[int, int]] = {
@@ -87,4 +94,139 @@ class TemplateSerializer(serializers.ModelSerializer[Template]):
             if not HEX_COLOR_RE.match(str(value.get(key, ""))):
                 msg = f"theme.{key} must be a hex color like #5b5bd6."
                 raise serializers.ValidationError(msg)
+        return value
+
+
+class CompanySummarySerializer(serializers.ModelSerializer[Company]):
+    logo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Company
+        fields = ["id", "name", "logo_url"]
+
+    def get_logo_url(self, obj: Company) -> str | None:
+        if obj.logo and companies_gcs.is_configured():
+            return companies_gcs.signed_get_url(obj.logo)
+        return None
+
+
+class SourceDocumentSerializer(serializers.ModelSerializer[Document]):
+    class Meta:
+        model = Document
+        fields = ["id", "file_name", "company"]
+
+
+class GenerationSourceSerializer(serializers.ModelSerializer[GenerationSource]):
+    document = SourceDocumentSerializer(read_only=True)
+
+    class Meta:
+        model = GenerationSource
+        fields = [
+            "id",
+            "source_role",
+            "page_number",
+            "snippet",
+            "used_fact",
+            "relevance_score",
+            "document",
+        ]
+
+
+class MaterialListSerializer(serializers.ModelSerializer[MarketingMaterial]):
+    sender_company = CompanySummarySerializer(read_only=True)
+    receiver_company = CompanySummarySerializer(read_only=True)
+    template_slug = serializers.CharField(source="template.slug", read_only=True)
+
+    class Meta:
+        model = MarketingMaterial
+        fields = [
+            "id",
+            "title",
+            "sender_company",
+            "receiver_company",
+            "template_slug",
+            "generation_status",
+            "review_status",
+            "created_at",
+            "completed_at",
+        ]
+
+
+class MaterialDetailSerializer(MaterialListSerializer):
+    template = TemplateSerializer(read_only=True)
+    sources = GenerationSourceSerializer(many=True, read_only=True)
+
+    class Meta(MaterialListSerializer.Meta):
+        fields = [
+            *MaterialListSerializer.Meta.fields,
+            "description",
+            "prompt",
+            "tone",
+            "cta_style",
+            "language",
+            "template",
+            "output_json",
+            "validation_result",
+            "error_message",
+            "updated_at",
+            "sources",
+        ]
+
+
+class MaterialCreateSerializer(serializers.ModelSerializer[MarketingMaterial]):
+    class Meta:
+        model = MarketingMaterial
+        fields = [
+            "id",
+            "title",
+            "description",
+            "sender_company",
+            "receiver_company",
+            "template",
+            "prompt",
+            "tone",
+            "cta_style",
+            "language",
+        ]
+        read_only_fields = ["id"]
+
+    def validate(self, attrs: dict) -> dict:
+        sender = attrs["sender_company"]
+        receiver = attrs["receiver_company"]
+        if sender == receiver:
+            msg = "Sender and receiver must be different companies."
+            raise serializers.ValidationError({"receiver_company": msg})
+        if not attrs["template"].is_active:
+            msg = "This template is not active."
+            raise serializers.ValidationError({"template": msg})
+        for field, company in (
+            ("sender_company", sender),
+            ("receiver_company", receiver),
+        ):
+            has_docs = Document.objects.filter(
+                company=company,
+                status=DocumentStatus.PROCESSED,
+            ).exists()
+            if not has_docs:
+                msg = (
+                    f"{company.name} has no processed documents — upload and "
+                    "process documents before generating."
+                )
+                raise serializers.ValidationError({field: msg})
+        return attrs
+
+
+class MaterialUpdateSerializer(serializers.ModelSerializer[MarketingMaterial]):
+    class Meta:
+        model = MarketingMaterial
+        fields = ["id", "title", "description", "prompt", "review_status"]
+        read_only_fields = ["id"]
+
+    def validate_review_status(self, value: str) -> str:
+        if (
+            self.instance is not None
+            and self.instance.generation_status != GenerationStatus.COMPLETED
+        ):
+            msg = "Review status can only change once generation is completed."
+            raise serializers.ValidationError(msg)
         return value
