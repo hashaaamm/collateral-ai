@@ -7,3 +7,5 @@ class DashboardStatsSerializer(serializers.Serializer):
     companies_count = serializers.IntegerField()
     documents_processed = serializers.IntegerField()
     documents_processing = serializers.IntegerField()
+    materials_generated = serializers.IntegerField()
+    materials_needs_review = serializers.IntegerField()

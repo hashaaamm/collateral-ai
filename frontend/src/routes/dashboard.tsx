@@ -6,38 +6,42 @@ import {
   Flag,
   CheckCircle,
   CircleNotch,
+  WarningCircle,
   ArrowRight,
 } from "@phosphor-icons/react";
 
 import { StatCard } from "@/components/stat-card";
 import { useDashboardStats } from "@/lib/api/dashboard";
+import { isGenerating, useMaterials, type MaterialList } from "@/lib/api/materials";
 import { useCurrentUser } from "@/lib/api/queries";
 
-/** Dummy recent materials — the materials feature isn't built yet. */
-type MaterialStatus = "completed" | "processing" | "needs_review";
+type MaterialPillStatus = "completed" | "processing" | "needs_review" | "failed";
 
-const RECENT: Array<{
-  title: string;
-  sender: string;
-  receiver: string;
-  status: MaterialStatus;
-}> = [
-  { title: "AI for Smarter Logistics", sender: "Acme AI", receiver: "DHL Logistics", status: "completed" },
-  { title: "Predictive Demand Planning", sender: "Acme AI", receiver: "RetailCo", status: "processing" },
-  { title: "Secure AI Infrastructure", sender: "CloudSec", receiver: "Acme AI", status: "needs_review" },
-  { title: "Financial Forecasting, Automated", sender: "NordFinance", receiver: "DHL Logistics", status: "completed" },
-];
+/**
+ * Derive a single recent-materials pill from the two status fields, checked in
+ * order (spec §3): generation first, then review.
+ */
+export function recentPillStatus(m: {
+  generation_status?: string;
+  review_status?: string;
+}): MaterialPillStatus {
+  if (isGenerating(m)) return "processing";
+  if (m.generation_status === "failed") return "failed";
+  if (m.review_status === "pending") return "needs_review";
+  return "completed";
+}
 
 const MATERIAL_PILL: Record<
-  MaterialStatus,
+  MaterialPillStatus,
   { label: string; cls: string; Icon: typeof CheckCircle; spin?: boolean }
 > = {
   completed: { label: "Completed", cls: "text-success bg-success-soft", Icon: CheckCircle },
   processing: { label: "Processing", cls: "text-warning bg-warning-soft", Icon: CircleNotch, spin: true },
   needs_review: { label: "Needs Review", cls: "text-review bg-review-soft", Icon: Flag },
+  failed: { label: "Failed", cls: "text-destructive bg-danger-soft", Icon: WarningCircle },
 };
 
-function MaterialPill({ status }: { status: MaterialStatus }) {
+function MaterialPill({ status }: { status: MaterialPillStatus }) {
   const s = MATERIAL_PILL[status];
   return (
     <span
@@ -58,6 +62,8 @@ function greeting(hour: number): string {
 export function DashboardPage() {
   const { data: user } = useCurrentUser();
   const { data: stats, isLoading } = useDashboardStats();
+  const { data: materials, isLoading: materialsLoading } = useMaterials();
+  const recent: MaterialList[] = materials?.slice(0, 4) ?? [];
 
   const now = new Date();
   const dateLabel = new Intl.DateTimeFormat("en-US", {
@@ -101,23 +107,23 @@ export function DashboardPage() {
         />
         <StatCard
           label="Materials generated"
-          value={11}
+          value={stats?.materials_generated ?? 0}
           Icon={MagicWand}
-          delta="+4 this week"
           tone="success"
+          loading={isLoading}
         />
         <StatCard
           label="Needs review"
-          value={2}
+          value={stats?.materials_needs_review ?? 0}
           Icon={Flag}
-          delta="Awaiting approval"
           tone="warning"
+          loading={isLoading}
         />
       </div>
 
       {/* Recent materials + Quick start */}
       <div className="grid grid-cols-[1.6fr_1fr] gap-5">
-        {/* Recent materials (dummy) */}
+        {/* Recent materials */}
         <div className="rounded-2xl border border-hairline bg-surface p-5">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-[15px] font-semibold text-ink">Recent materials</h2>
@@ -126,20 +132,39 @@ export function DashboardPage() {
             </Link>
           </div>
           <div>
-            {RECENT.map((m) => (
-              <div
-                key={m.title}
-                className="flex items-center justify-between rounded-lg px-2 py-[11px] hover:bg-subtle"
-              >
-                <div>
-                  <div className="text-[13px] font-semibold text-ink">{m.title}</div>
-                  <div className="text-[11.5px] text-mute">
-                    {m.sender} → {m.receiver}
+            {materialsLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded-lg px-2 py-[11px]"
+                >
+                  <div className="flex-1">
+                    <div className="h-[15px] w-40 animate-pulse rounded bg-subtle" />
+                    <div className="mt-[6px] h-[13px] w-28 animate-pulse rounded bg-subtle" />
                   </div>
+                  <div className="h-[22px] w-20 animate-pulse rounded-full bg-subtle" />
                 </div>
-                <MaterialPill status={m.status} />
+              ))
+            ) : recent.length === 0 ? (
+              <div className="px-2 py-8 text-center text-[13px] text-mute">
+                No materials yet
               </div>
-            ))}
+            ) : (
+              recent.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between rounded-lg px-2 py-[11px] hover:bg-subtle"
+                >
+                  <div>
+                    <div className="text-[13px] font-semibold text-ink">{m.title}</div>
+                    <div className="text-[11.5px] text-mute">
+                      {m.sender_company.name} → {m.receiver_company.name}
+                    </div>
+                  </div>
+                  <MaterialPill status={recentPillStatus(m)} />
+                </div>
+              ))
+            )}
           </div>
         </div>
 

@@ -17,7 +17,7 @@ export function StatCard({
   label: string;
   value: number | string;
   Icon: Icon;
-  delta: string;
+  delta?: string;
   tone?: "success" | "warning" | "muted";
   loading?: boolean;
 }) {
@@ -32,8 +32,10 @@ export function StatCard({
       ) : (
         <div className="mt-2 text-[27px] font-bold leading-none text-ink">{value}</div>
       )}
+      {/* Render an empty spacer (&nbsp;) when there's no delta so every card in the
+          grid keeps the same height as those with a caption line. */}
       <div className={`mt-[7px] text-[12px] ${loading ? "text-faint" : TONE[tone]}`}>
-        {loading ? "—" : delta}
+        {loading ? "—" : (delta ?? " ")}
       </div>
     </div>
   );
