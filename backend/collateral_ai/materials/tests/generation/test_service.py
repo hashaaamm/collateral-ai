@@ -147,3 +147,37 @@ def test_command_skip_exits_zero():
         service_cls.return_value.generate.return_value = False
         call_command("generate_material", material_id=material.pk, stdout=out)
     assert "skipped" in out.getvalue()
+
+
+def test_stamp_injects_cta_url_when_link_present():
+    from collateral_ai.materials.generation.service import MaterialGenerationService
+    from collateral_ai.materials.tests.factories import (
+        MarketingMaterialFactory,
+        TemplateFactory,
+    )
+
+    template = TemplateFactory()
+    material = MarketingMaterialFactory(template=template, cta_link="https://example.com/demo")
+    service = MaterialGenerationService.__new__(MaterialGenerationService)
+    output = {"article": {"cta": "Book a demo"}}
+
+    stamped = service._stamp(output, template, material)
+
+    assert stamped["article"]["cta_url"] == "https://example.com/demo"
+
+
+def test_stamp_omits_cta_url_when_link_blank():
+    from collateral_ai.materials.generation.service import MaterialGenerationService
+    from collateral_ai.materials.tests.factories import (
+        MarketingMaterialFactory,
+        TemplateFactory,
+    )
+
+    template = TemplateFactory()
+    material = MarketingMaterialFactory(template=template, cta_link="")
+    service = MaterialGenerationService.__new__(MaterialGenerationService)
+    output = {"article": {"cta": "Book a demo"}}
+
+    stamped = service._stamp(output, template, material)
+
+    assert "cta_url" not in stamped["article"]

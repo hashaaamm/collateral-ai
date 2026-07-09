@@ -143,7 +143,7 @@ class MaterialGenerationService:
             ),
             response_schema=response_schema,
         )
-        output = self._stamp(output, template)
+        output = self._stamp(output, template, material)
         result = self._validate(output, template, allowed_ids)
 
         attempts = 0
@@ -163,7 +163,7 @@ class MaterialGenerationService:
                 allowed_source_ids=sorted(allowed_ids),
                 response_schema=response_schema,
             )
-            output = self._stamp(output, template)
+            output = self._stamp(output, template, material)
             result = self._validate(output, template, allowed_ids)
 
         context_snapshot = {
@@ -183,10 +183,15 @@ class MaterialGenerationService:
 
         self._save_completed(material, output, result, context_snapshot, source_map)
 
-    def _stamp(self, output: dict, template) -> dict:
-        """template_id and theme are template-owned — never trusted from the model."""
+    def _stamp(self, output: dict, template, material) -> dict:
+        """template_id and theme are template-owned — never trusted from the model.
+
+        cta_link is user-owned — injected deterministically, never via the LLM.
+        """
         output["template_id"] = template.slug
         output["theme"] = dict(template.theme)
+        if material.cta_link:
+            output.setdefault("article", {})["cta_url"] = material.cta_link
         return output
 
     def _validate(self, output, template, allowed_ids):
