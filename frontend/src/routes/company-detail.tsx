@@ -4,6 +4,7 @@ import { CaretRight, Globe, PencilSimple, Trash } from "@phosphor-icons/react";
 
 import { CompanyLogo } from "@/components/company-logo";
 import { DocumentsTab } from "@/components/documents-tab";
+import { MaterialsTab } from "@/components/materials-tab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -167,9 +168,7 @@ export function CompanyDetailPage() {
         </div>
       )}
       {tab === "Documents" && <DocumentsTab companyId={Number(companyId)} />}
-      {tab === "Generated Materials" && (
-        <p className="text-[13px] text-mute">Coming soon.</p>
-      )}
+      {tab === "Generated Materials" && <MaterialsTab companyId={Number(companyId)} />}
     </div>
   );
 }
