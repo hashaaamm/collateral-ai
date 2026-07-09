@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Trash } from "@phosphor-icons/react";
 
 import {
   AlertDialog,
@@ -9,7 +8,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
@@ -32,18 +30,14 @@ export function ConfirmDeleteDialog({
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent size="sm">
+      <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogMedia className="bg-destructive/10 text-destructive">
-            <Trash weight="bold" />
-          </AlertDialogMedia>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            variant="destructive"
             disabled={loading}
             onClick={(e) => {
               // Keep the dialog mounted while the mutation runs; the caller
@@ -52,7 +46,6 @@ export function ConfirmDeleteDialog({
               onConfirm();
             }}
           >
-            <Trash weight="bold" />
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
