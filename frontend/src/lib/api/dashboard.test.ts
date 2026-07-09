@@ -11,6 +11,8 @@ describe("fetchDashboardStats", () => {
         companies_count: 6,
         documents_processed: 18,
         documents_processing: 2,
+        materials_generated: 11,
+        materials_needs_review: 3,
       },
       error: undefined,
     } as never);
@@ -22,6 +24,8 @@ describe("fetchDashboardStats", () => {
       companies_count: 6,
       documents_processed: 18,
       documents_processing: 2,
+      materials_generated: 11,
+      materials_needs_review: 3,
     });
   });
 

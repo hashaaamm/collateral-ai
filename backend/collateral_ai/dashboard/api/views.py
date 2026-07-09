@@ -6,6 +6,9 @@ from rest_framework.views import APIView
 from collateral_ai.companies.models import Company
 from collateral_ai.documents.models import Document
 from collateral_ai.documents.statuses import DocumentStatus
+from collateral_ai.materials.models import MarketingMaterial
+from collateral_ai.materials.statuses import GenerationStatus
+from collateral_ai.materials.statuses import ReviewStatus
 
 from .serializers import DashboardStatsSerializer
 
@@ -22,6 +25,12 @@ class DashboardStatsView(APIView):
             ).count(),
             "documents_processing": Document.objects.filter(
                 status=DocumentStatus.PROCESSING,
+            ).count(),
+            "materials_generated": MarketingMaterial.objects.filter(
+                generation_status=GenerationStatus.COMPLETED,
+            ).count(),
+            "materials_needs_review": MarketingMaterial.objects.filter(
+                review_status=ReviewStatus.PENDING,
             ).count(),
         }
         return Response(DashboardStatsSerializer(data).data)

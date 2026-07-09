@@ -337,6 +337,8 @@ export interface components {
             companies_count: number;
             documents_processed: number;
             documents_processing: number;
+            materials_generated: number;
+            materials_needs_review: number;
         };
         Document: {
             readonly id: number;
