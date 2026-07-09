@@ -12,6 +12,7 @@ class Company(models.Model):
     brand_colors = models.JSONField(_("brand colors"), default=list, blank=True)
     logo = models.CharField(_("logo object path"), max_length=512, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    last_activity_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = _("company")

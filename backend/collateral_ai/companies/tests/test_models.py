@@ -27,3 +27,17 @@ def test_ordering_is_newest_first():
 def test_logo_defaults_blank():
     company = CompanyFactory()
     assert company.logo == ""
+
+
+def test_company_has_last_activity_after_create():
+    company = CompanyFactory()
+    assert company.last_activity_at is not None
+
+
+def test_saving_company_bumps_last_activity():
+    company = CompanyFactory()
+    before = company.last_activity_at
+    company.name = "Renamed"
+    company.save()
+    company.refresh_from_db()
+    assert company.last_activity_at >= before
