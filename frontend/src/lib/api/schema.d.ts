@@ -84,7 +84,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    // Hand-authored: a real `pnpm gen:api` run would emit a named `DocumentDownloadResponse` component `$ref` here instead of this inline `{ url: string }` body (consumer stays compatible).
     "/api/companies/{company_pk}/documents/{id}/download-url/": {
         parameters: {
             query?: never;
@@ -224,6 +223,8 @@ export interface components {
             readonly logo_url: string | null;
             /** Format: date-time */
             readonly created_at: string;
+            /** Format: date-time */
+            readonly last_updated: string;
         };
         Document: {
             readonly id: number;
@@ -259,6 +260,10 @@ export interface components {
             /** Format: uri */
             upload_url: string;
         };
+        DocumentDownloadResponse: {
+            /** Format: uri */
+            url: string;
+        };
         LogoUploadUrl: {
             /** Format: uri */
             upload_url: string;
@@ -280,6 +285,8 @@ export interface components {
             readonly logo_url?: string | null;
             /** Format: date-time */
             readonly created_at?: string;
+            /** Format: date-time */
+            readonly last_updated?: string;
         };
         PatchedUser: {
             /** Name of User */
@@ -504,6 +511,7 @@ export interface operations {
             header?: never;
             path: {
                 company_pk: number;
+                /** @description A unique integer value identifying this document. */
                 id: number;
             };
             cookie?: never;
@@ -515,9 +523,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        url: string;
-                    };
+                    "application/json": components["schemas"]["DocumentDownloadResponse"];
                 };
             };
         };
