@@ -10,7 +10,12 @@ CONSTRAINTS = {
     "cta_max_words": 15,
 }
 SLOTS = [
-    {"slot_id": "hero_image", "label": "Hero", "spec": "1200×630", "source": "generated_placeholder"},
+    {
+        "slot_id": "hero_image",
+        "label": "Hero",
+        "spec": "1200×630",  # noqa: RUF001
+        "source": "generated_placeholder",
+    },
     {"slot_id": "sender_logo", "label": "Logo", "spec": "SVG", "source": "sender"},
 ]
 

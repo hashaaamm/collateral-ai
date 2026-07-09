@@ -28,7 +28,7 @@ def default_image_slots() -> list[dict]:
         {
             "slot_id": "hero_image",
             "label": "Hero image",
-            "spec": "1200×630",
+            "spec": "1200×630",  # noqa: RUF001
             "source": "generated_placeholder",
         },
         {

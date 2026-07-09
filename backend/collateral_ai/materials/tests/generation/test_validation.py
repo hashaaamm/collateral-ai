@@ -10,7 +10,12 @@ CONSTRAINTS = {
     "cta_max_words": 4,
 }
 IMAGE_SLOTS = [
-    {"slot_id": "hero_image", "label": "Hero", "spec": "1200×630", "source": "generated_placeholder"},
+    {
+        "slot_id": "hero_image",
+        "label": "Hero",
+        "spec": "1200×630",  # noqa: RUF001
+        "source": "generated_placeholder",
+    },
     {"slot_id": "sender_logo", "label": "Logo", "spec": "SVG", "source": "sender"},
 ]
 ALLOWED = {"SENDER_SOURCE_1", "RECEIVER_SOURCE_1"}
@@ -22,13 +27,23 @@ def valid_output() -> dict:
             "headline": "Smart warehouses now",
             "subheadline": "AI planning for modern logistics teams",
             "body_sections": [
-                {"title": "The Challenge", "text": "Manual planning wastes hours weekly."},
-                {"title": "The Solution", "text": "Predictive AI removes the guesswork."},
+                {
+                    "title": "The Challenge",
+                    "text": "Manual planning wastes hours weekly.",
+                },
+                {
+                    "title": "The Solution",
+                    "text": "Predictive AI removes the guesswork.",
+                },
             ],
             "cta": "Book a demo",
         },
         "image_slots": [
-            {"slot_id": "hero_image", "description": "warehouse", "source": "generated_placeholder"},
+            {
+                "slot_id": "hero_image",
+                "description": "warehouse",
+                "source": "generated_placeholder",
+            },
             {"slot_id": "sender_logo", "description": "logo", "source": "sender"},
         ],
         "source_references": [
@@ -82,7 +97,8 @@ def test_wrong_body_section_count_is_word_limit_category():
 def test_missing_and_mismatched_image_slots():
     output = valid_output()
     output["image_slots"] = [
-        {"slot_id": "hero_image", "description": "x", "source": "sender"},  # wrong source
+        # wrong source
+        {"slot_id": "hero_image", "description": "x", "source": "sender"},
     ]
     result = validate(output)
     assert categories(result) == {"image_slot"}

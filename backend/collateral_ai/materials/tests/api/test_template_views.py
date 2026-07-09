@@ -36,7 +36,7 @@ def valid_body() -> dict:
             {
                 "slot_id": "hero_image",
                 "label": "Hero image",
-                "spec": "1200×630",
+                "spec": "1200×630",  # noqa: RUF001
                 "source": "generated_placeholder",
             },
         ],
@@ -87,7 +87,12 @@ def test_create_uniquifies_slug(auth_client):
         (
             {
                 "image_slots": [
-                    {"slot_id": "Bad Id!", "label": "x", "spec": "", "source": "sender"},
+                    {
+                        "slot_id": "Bad Id!",
+                        "label": "x",
+                        "spec": "",
+                        "source": "sender",
+                    },
                 ],
             },
             "image_slots",
