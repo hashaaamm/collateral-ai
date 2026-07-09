@@ -86,7 +86,7 @@ LOCAL_APPS = [
     "collateral_ai.users",
     "collateral_ai.companies",
     "collateral_ai.documents",
-    # Your stuff: custom apps go here
+    "collateral_ai.materials",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
