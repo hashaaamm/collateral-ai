@@ -167,3 +167,14 @@ export function useDeleteMaterial() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
   });
 }
+
+/** DRF error body → first human-readable message (for the wizard). */
+export function createMaterialErrorText(err: unknown): string {
+  if (err && typeof err === "object") {
+    for (const value of Object.values(err as Record<string, unknown>)) {
+      if (Array.isArray(value) && value.length > 0) return String(value[0]);
+      if (typeof value === "string") return value;
+    }
+  }
+  return "Something went wrong. Please try again.";
+}
