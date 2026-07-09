@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from django.db.models import ProtectedError
 
 from collateral_ai.materials.models import DEFAULT_TEMPLATE_SLUG
 from collateral_ai.materials.models import Template
+from collateral_ai.materials.statuses import GenerationStatus
+from collateral_ai.materials.statuses import ReviewStatus
+from collateral_ai.materials.tests.factories import GenerationSourceFactory
+from collateral_ai.materials.tests.factories import MarketingMaterialFactory
 from collateral_ai.materials.tests.factories import TemplateFactory
 
 pytestmark = pytest.mark.django_db
@@ -29,3 +34,43 @@ def test_ordering_is_oldest_first_with_seed_first():
     TemplateFactory(name="Later Template")
     slugs = list(Template.objects.values_list("slug", flat=True))
     assert slugs[0] == DEFAULT_TEMPLATE_SLUG
+
+
+def test_material_defaults():
+    material = MarketingMaterialFactory()
+    assert material.generation_status == GenerationStatus.QUEUED
+    assert material.review_status == ReviewStatus.PENDING
+    assert material.tone == "professional"
+    assert material.cta_style == "soft"
+    assert material.language == "english"
+    assert material.output_json is None
+    assert material.completed_at is None
+
+
+def test_template_delete_is_protected_by_materials():
+    material = MarketingMaterialFactory()
+    with pytest.raises(ProtectedError):
+        material.template.delete()
+
+
+def test_source_chunk_nulls_on_chunk_delete():
+    from collateral_ai.documents.tests.factories import DocumentChunkFactory
+
+    chunk = DocumentChunkFactory()
+    source = GenerationSourceFactory(
+        document=chunk.document,
+        chunk=chunk,
+        page_number=chunk.page_number,
+    )
+    chunk.delete()
+    source.refresh_from_db()
+    assert source.chunk is None
+    assert source.page_number == 1  # denormalized value survives
+
+
+def test_material_delete_cascades_sources():
+    source = GenerationSourceFactory()
+    source.material.delete()
+    from collateral_ai.materials.models import GenerationSource
+
+    assert not GenerationSource.objects.filter(pk=source.pk).exists()

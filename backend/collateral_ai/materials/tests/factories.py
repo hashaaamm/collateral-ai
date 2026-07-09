@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from factory import Faker
 from factory import LazyFunction
+from factory import SubFactory
 from factory.django import DjangoModelFactory
 
+from collateral_ai.companies.tests.factories import CompanyFactory
+from collateral_ai.documents.tests.factories import DocumentFactory
+from collateral_ai.materials.models import GenerationSource
+from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.models import Template
+from collateral_ai.materials.statuses import SourceRole
 
 
 def default_constraints() -> dict:
@@ -44,3 +50,33 @@ class TemplateFactory(DjangoModelFactory[Template]):
 
     class Meta:
         model = Template
+
+
+class MarketingMaterialFactory(DjangoModelFactory[MarketingMaterial]):
+    title = Faker("sentence", nb_words=4)
+    sender_company = SubFactory(CompanyFactory)
+    receiver_company = SubFactory(CompanyFactory)
+    template = SubFactory(TemplateFactory)
+    prompt = Faker("paragraph")
+
+    class Meta:
+        model = MarketingMaterial
+
+
+class GenerationSourceFactory(DjangoModelFactory[GenerationSource]):
+    material = SubFactory(MarketingMaterialFactory)
+    document = SubFactory(DocumentFactory)
+    source_role = SourceRole.SENDER
+    page_number = 1
+    snippet = "quoted snippet"
+    used_fact = "a fact that was used"
+    relevance_score = 0.12
+
+    class Meta:
+        model = GenerationSource
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        # company defaults to the document's company when not given
+        kwargs.setdefault("company", kwargs["document"].company)
+        return super()._create(model_class, *args, **kwargs)
