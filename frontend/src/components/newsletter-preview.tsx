@@ -37,6 +37,21 @@ export function NewsletterPreview({
     const meta = slotMeta.get(slotId);
     return meta ? `${meta.label} · ${meta.spec}` : slotId;
   };
+  // source=sender/receiver slots always render as floating CompanyLogo chips
+  // (spec §7.3), whether or not the template also has a hero image slot.
+  const logoChips = logoSlots.map((slot) => {
+    const company =
+      slot.source === "sender" ? material.sender_company : material.receiver_company;
+    return (
+      <span
+        key={slot.slot_id}
+        className="rounded-xl bg-surface p-1 shadow-sm"
+        title={slotCaption(slot.slot_id)}
+      >
+        <CompanyLogo name={company.name} logoUrl={company.logo_url} size={32} />
+      </span>
+    );
+  });
 
   return (
     <div className="mx-auto max-w-[460px] overflow-hidden rounded-2xl border border-hairline bg-surface shadow-[0_8px_30px_-12px_rgba(20,20,40,0.25)]">
@@ -46,25 +61,12 @@ export function NewsletterPreview({
             {slotCaption(hero.slot_id)}
           </span>
           {logoSlots.length > 0 && (
-            <div className="absolute left-4 top-4 flex gap-2">
-              {logoSlots.map((slot) => {
-                const company =
-                  slot.source === "sender" ? material.sender_company : material.receiver_company;
-                return (
-                  <span
-                    key={slot.slot_id}
-                    className="rounded-xl bg-surface p-1 shadow-sm"
-                    title={slotCaption(slot.slot_id)}
-                  >
-                    <CompanyLogo name={company.name} logoUrl={company.logo_url} size={32} />
-                  </span>
-                );
-              })}
-            </div>
+            <div className="absolute left-4 top-4 flex gap-2">{logoChips}</div>
           )}
         </div>
       )}
       <div className="p-6">
+        {!hero && logoSlots.length > 0 && <div className="mb-3 flex gap-2">{logoChips}</div>}
         <div
           className="text-[11px] font-semibold uppercase tracking-wide"
           style={{ color: theme.primary_color }}
