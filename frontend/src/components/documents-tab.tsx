@@ -6,7 +6,7 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { StatusPill } from "@/components/status-pill";
 import { LoadingState } from "@/components/ui/spinner";
 import {
-  getDocumentDownloadUrl,
+  fetchDocumentViewUrl,
   useCompleteDocument,
   useDeleteDocument,
   useDocuments,
@@ -42,7 +42,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
       return;
     }
     try {
-      const url = await getDocumentDownloadUrl(companyId, d.id);
+      const url = await fetchDocumentViewUrl(companyId, d.id);
       w.opener = null;
       w.location.href = url;
     } catch {

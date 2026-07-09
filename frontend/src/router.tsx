@@ -19,7 +19,9 @@ import { CreateCompanyPage } from "@/routes/create-company";
 import { EditCompanyPage } from "@/routes/edit-company";
 import { CreatePage } from "@/routes/create";
 import { MaterialsPage } from "@/routes/materials";
+import { MaterialDetailPage } from "@/routes/material-detail";
 import { TemplatesPage } from "@/routes/templates";
+import { TemplateNewPage } from "@/routes/template-new";
 
 /** Bare root — each group provides its own chrome (or none). */
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
@@ -116,10 +118,20 @@ const materialsRoute = createRoute({
   path: "/materials",
   component: MaterialsPage,
 });
+const materialDetailRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/materials/$materialId",
+  component: MaterialDetailPage,
+});
 const templatesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/templates",
   component: TemplatesPage,
+});
+const templateNewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/templates/new",
+  component: TemplateNewPage,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -133,7 +145,9 @@ const routeTree = rootRoute.addChildren([
     companyEditRoute,
     createMaterialRoute,
     materialsRoute,
+    materialDetailRoute,
     templatesRoute,
+    templateNewRoute,
   ]),
 ]);
 

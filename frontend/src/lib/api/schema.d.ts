@@ -84,14 +84,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/companies/{company_pk}/documents/{id}/download-url/": {
+    "/api/companies/{company_pk}/documents/{id}/view-url/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["companies_documents_download_url_retrieve"];
+        /** @description Signed GET URL so the browser can open the stored PDF (spec §5.3). */
+        get: operations["companies_documents_view_url_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -149,6 +150,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/materials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["materials_list"];
+        put?: never;
+        post: operations["materials_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/materials/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["materials_retrieve"];
+        put: operations["materials_update"];
+        post?: never;
+        delete: operations["materials_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["materials_partial_update"];
+        trace?: never;
+    };
+    "/api/materials/{id}/regenerate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["materials_regenerate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/schema/": {
         parameters: {
             query?: never;
@@ -163,6 +212,41 @@ export interface paths {
          *     - JSON: application/vnd.oai.openapi+json
          */
         get: operations["schema_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Templates are create-only in MVP: no update/delete (spec §5.1). */
+        get: operations["templates_list"];
+        put?: never;
+        /** @description Templates are create-only in MVP: no update/delete (spec §5.1). */
+        post: operations["templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/templates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Templates are create-only in MVP: no update/delete (spec §5.1). */
+        get: operations["templates_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -243,6 +327,11 @@ export interface components {
             /** Format: date-time */
             readonly last_updated: string;
         };
+        CompanySummary: {
+            readonly id: number;
+            name: string;
+            readonly logo_url: string | null;
+        };
         /** @description Read-only aggregate counts for the dashboard stat cards. */
         DashboardStats: {
             companies_count: number;
@@ -283,10 +372,28 @@ export interface components {
             /** Format: uri */
             upload_url: string;
         };
-        DocumentDownloadResponse: {
+        DocumentViewUrl: {
             /** Format: uri */
             url: string;
         };
+        GenerationSource: {
+            readonly id: number;
+            source_role: components["schemas"]["SourceRoleEnum"];
+            page_number?: number | null;
+            snippet?: string;
+            used_fact?: string;
+            /** Format: double */
+            relevance_score?: number | null;
+            readonly document: components["schemas"]["SourceDocument"];
+        };
+        /**
+         * @description * `queued` - Queued
+         *     * `processing` - Processing
+         *     * `completed` - Completed
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        GenerationStatusEnum: "queued" | "processing" | "completed" | "failed";
         LogoUploadUrl: {
             /** Format: uri */
             upload_url: string;
@@ -295,6 +402,63 @@ export interface components {
         LogoUploadUrlRequest: {
             filename: string;
             content_type: string;
+        };
+        MaterialCreate: {
+            readonly id: number;
+            title: string;
+            description?: string;
+            sender_company: number;
+            receiver_company: number;
+            template: number;
+            prompt: string;
+            tone?: string;
+            cta_style?: string;
+            language?: string;
+        };
+        MaterialDetail: {
+            readonly id: number;
+            title: string;
+            readonly sender_company: components["schemas"]["CompanySummary"];
+            readonly receiver_company: components["schemas"]["CompanySummary"];
+            readonly template_slug: string;
+            generation_status?: components["schemas"]["GenerationStatusEnum"];
+            review_status?: components["schemas"]["ReviewStatusEnum"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            completed_at?: string | null;
+            description?: string;
+            prompt: string;
+            tone?: string;
+            cta_style?: string;
+            language?: string;
+            readonly template: components["schemas"]["Template"];
+            output_json?: unknown;
+            validation_result?: unknown;
+            error_message?: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly sources: components["schemas"]["GenerationSource"][];
+        };
+        MaterialList: {
+            readonly id: number;
+            title: string;
+            readonly sender_company: components["schemas"]["CompanySummary"];
+            readonly receiver_company: components["schemas"]["CompanySummary"];
+            readonly template_slug: string;
+            generation_status?: components["schemas"]["GenerationStatusEnum"];
+            review_status?: components["schemas"]["ReviewStatusEnum"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            completed_at?: string | null;
+        };
+        MaterialUpdate: {
+            readonly id: number;
+            title: string;
+            description?: string;
+            prompt: string;
+            review_status?: components["schemas"]["ReviewStatusEnum"];
         };
         PatchedCompany: {
             readonly id?: number;
@@ -311,6 +475,13 @@ export interface components {
             /** Format: date-time */
             readonly last_updated?: string;
         };
+        PatchedMaterialUpdate: {
+            readonly id?: number;
+            title?: string;
+            description?: string;
+            prompt?: string;
+            review_status?: components["schemas"]["ReviewStatusEnum"];
+        };
         PatchedUser: {
             /** Name of User */
             name?: string;
@@ -319,12 +490,42 @@ export interface components {
         };
         /**
          * @description * `pending` - Pending
+         *     * `approved` - Approved
+         *     * `rejected` - Rejected
+         * @enum {string}
+         */
+        ReviewStatusEnum: "pending" | "approved" | "rejected";
+        SourceDocument: {
+            readonly id: number;
+            file_name: string;
+            company: number;
+        };
+        /**
+         * @description * `sender` - Sender
+         *     * `receiver` - Receiver
+         * @enum {string}
+         */
+        SourceRoleEnum: "sender" | "receiver";
+        /**
+         * @description * `pending` - Pending
          *     * `processing` - Processing
          *     * `processed` - Processed
          *     * `failed` - Failed
          * @enum {string}
          */
         StatusEnum: "pending" | "processing" | "processed" | "failed";
+        Template: {
+            readonly id: number;
+            name: string;
+            readonly slug: string;
+            description?: string;
+            constraints?: unknown;
+            image_slots?: unknown;
+            theme?: unknown;
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         User: {
             /** Name of User */
             name?: string;
@@ -528,7 +729,7 @@ export interface operations {
             };
         };
     };
-    companies_documents_download_url_retrieve: {
+    companies_documents_view_url_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -546,7 +747,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentDownloadResponse"];
+                    "application/json": components["schemas"]["DocumentViewUrl"];
                 };
             };
         };
@@ -694,6 +895,187 @@ export interface operations {
             };
         };
     };
+    materials_list: {
+        parameters: {
+            query?: {
+                /** @description Sender OR receiver company id */
+                company?: number;
+                generation_status?: string;
+                receiver?: number;
+                review_status?: string;
+                /** @description A search term. */
+                search?: string;
+                sender?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialList"][];
+                };
+            };
+        };
+    };
+    materials_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["MaterialCreate"];
+                "multipart/form-data": components["schemas"]["MaterialCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialDetail"];
+                };
+            };
+        };
+    };
+    materials_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this marketing material. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialDetail"];
+                };
+            };
+        };
+    };
+    materials_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this marketing material. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["MaterialUpdate"];
+                "multipart/form-data": components["schemas"]["MaterialUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialUpdate"];
+                };
+            };
+        };
+    };
+    materials_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this marketing material. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    materials_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this marketing material. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedMaterialUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedMaterialUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedMaterialUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialUpdate"];
+                };
+            };
+        };
+    };
+    materials_regenerate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this marketing material. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialDetail"];
+                };
+            };
+            /** @description Generation already in progress */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     schema_retrieve: {
         parameters: {
             query?: {
@@ -723,6 +1105,72 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    templates_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"][];
+                };
+            };
+        };
+    };
+    templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Template"];
+                "application/x-www-form-urlencoded": components["schemas"]["Template"];
+                "multipart/form-data": components["schemas"]["Template"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+        };
+    };
+    templates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this template. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
                 };
             };
         };

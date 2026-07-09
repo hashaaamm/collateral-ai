@@ -183,9 +183,8 @@ def test_create_rejects_overlong_file_name(auth_client):
     assert not Document.objects.exists()
 
 
-def test_download_url_returns_signed_url_when_configured(auth_client):
-    company = CompanyFactory()
-    doc = DocumentFactory(company=company, file_name="report.pdf")
+def test_view_url_returns_signed_get_url(auth_client):
+    doc = DocumentFactory(storage_path="media/companies/1/documents/1/doc.pdf")
     with (
         mock.patch(
             "collateral_ai.documents.api.views.gcs.is_configured",
@@ -196,30 +195,37 @@ def test_download_url_returns_signed_url_when_configured(auth_client):
             return_value="https://signed-get",
         ),
     ):
-        resp = auth_client.get(
-            f"/api/companies/{company.pk}/documents/{doc.pk}/download-url/",
-        )
+        resp = auth_client.get(f"{docs_url(doc.company_id)}{doc.pk}/view-url/")
     assert resp.status_code == HTTPStatus.OK
     assert resp.json() == {"url": "https://signed-get"}
 
 
-def test_download_url_503_when_not_configured(auth_client):
-    company = CompanyFactory()
-    doc = DocumentFactory(company=company, file_name="report.pdf")
+def test_view_url_503_when_unconfigured(auth_client):
+    doc = DocumentFactory()
     with mock.patch(
         "collateral_ai.documents.api.views.gcs.is_configured",
         return_value=False,
     ):
-        resp = auth_client.get(
-            f"/api/companies/{company.pk}/documents/{doc.pk}/download-url/",
-        )
+        resp = auth_client.get(f"{docs_url(doc.company_id)}{doc.pk}/view-url/")
     assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
 
-def test_download_url_scoped_to_company(auth_client):
-    a, b = CompanyFactory(), CompanyFactory()
-    doc = DocumentFactory(company=b, file_name="b.pdf")
-    resp = auth_client.get(
-        f"/api/companies/{a.pk}/documents/{doc.pk}/download-url/",
-    )
+def test_view_url_404_when_no_storage_path(auth_client):
+    doc = DocumentFactory(storage_path="")
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured",
+        return_value=True,
+    ):
+        resp = auth_client.get(f"{docs_url(doc.company_id)}{doc.pk}/view-url/")
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_view_url_scoped_to_company(auth_client):
+    company_a, company_b = CompanyFactory(), CompanyFactory()
+    doc_b = DocumentFactory(company=company_b)
+    with mock.patch(
+        "collateral_ai.documents.api.views.gcs.is_configured",
+        return_value=True,
+    ):
+        resp = auth_client.get(f"{docs_url(company_a.pk)}{doc_b.pk}/view-url/")
     assert resp.status_code == HTTPStatus.NOT_FOUND

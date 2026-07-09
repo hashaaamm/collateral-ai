@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deleteDocument, getDocumentDownloadUrl, uploadDocument } from "./documents";
+import { deleteDocument, fetchDocumentViewUrl, uploadDocument } from "./documents";
 import { api } from "./client";
 import * as upload from "./upload";
 
@@ -60,25 +60,25 @@ describe("deleteDocument", () => {
   });
 });
 
-describe("getDocumentDownloadUrl", () => {
-  it("GETs the download-url endpoint and returns the url", async () => {
+describe("fetchDocumentViewUrl", () => {
+  it("GETs the view-url endpoint and returns the url", async () => {
     const get = vi.spyOn(api, "GET").mockResolvedValue({
       data: { url: "https://signed-get" },
       error: undefined,
     } as never);
-    const url = await getDocumentDownloadUrl(3, 7);
+    const url = await fetchDocumentViewUrl(3, 7);
     expect(get).toHaveBeenCalledWith(
-      "/api/companies/{company_pk}/documents/{id}/download-url/",
+      "/api/companies/{company_pk}/documents/{id}/view-url/",
       { params: { path: { company_pk: 3, id: 7 } } },
     );
     expect(url).toBe("https://signed-get");
   });
 
-  it("throws download_unavailable on error", async () => {
+  it("throws view_url_failed on error", async () => {
     vi.spyOn(api, "GET").mockResolvedValue({
       data: undefined,
       error: { detail: "no" },
     } as never);
-    await expect(getDocumentDownloadUrl(3, 7)).rejects.toThrow("download_unavailable");
+    await expect(fetchDocumentViewUrl(3, 7)).rejects.toThrow("view_url_failed");
   });
 });

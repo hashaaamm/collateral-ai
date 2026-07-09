@@ -86,7 +86,7 @@ LOCAL_APPS = [
     "collateral_ai.users",
     "collateral_ai.companies",
     "collateral_ai.documents",
-    # Your stuff: custom apps go here
+    "collateral_ai.materials",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -338,3 +338,21 @@ DOCUMENT_CHUNKING_VERSION = env("DOCUMENT_CHUNKING_VERSION", default="v1")
 # When set (prod), `complete` executes this Cloud Run Job instead of running the worker inline.
 DOCUMENT_PROCESSOR_JOB = env("DOCUMENT_PROCESSOR_JOB", default="")
 DOCUMENT_PROCESSOR_REGION = env("DOCUMENT_PROCESSOR_REGION", default="us-central1")
+
+# Material generation (worker 2)
+# ------------------------------------------------------------------------------
+# When set (prod), material create/regenerate executes this Cloud Run Job instead
+# of running the worker inline.
+MATERIAL_GENERATOR_JOB = env("MATERIAL_GENERATOR_JOB", default="")
+MATERIAL_GENERATOR_REGION = env("MATERIAL_GENERATOR_REGION", default="us-central1")
+MATERIAL_LLM_MODEL = env("MATERIAL_LLM_MODEL", default="gemini-2.5-flash")
+MATERIAL_GENERATION_TEMPERATURE = env.float(
+    "MATERIAL_GENERATION_TEMPERATURE",
+    default=0.2,
+)
+MATERIAL_GENERATION_MAX_OUTPUT_TOKENS = env.int(
+    "MATERIAL_GENERATION_MAX_OUTPUT_TOKENS",
+    default=8192,
+)
+MATERIAL_RETRIEVAL_TOP_K = env.int("MATERIAL_RETRIEVAL_TOP_K", default=8)
+MATERIAL_MAX_REPAIR_ATTEMPTS = env.int("MATERIAL_MAX_REPAIR_ATTEMPTS", default=2)

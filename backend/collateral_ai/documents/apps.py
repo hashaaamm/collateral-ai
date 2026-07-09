@@ -7,4 +7,6 @@ class DocumentsConfig(AppConfig):
     verbose_name = _("Documents")
 
     def ready(self):
-        from collateral_ai.documents import signals  # noqa: F401
+        # Signal registration must happen inside ready() (Django app-loading
+        # contract), so the local import is deliberate.
+        from collateral_ai.documents import signals  # noqa: F401, PLC0415

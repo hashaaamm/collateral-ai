@@ -4,6 +4,7 @@ import { CaretRight, Globe, PencilSimple, Trash } from "@phosphor-icons/react";
 
 import { CompanyLogo } from "@/components/company-logo";
 import { DocumentsTab } from "@/components/documents-tab";
+import { MaterialsTab } from "@/components/materials-tab";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { LoadingState } from "@/components/ui/spinner";
 import { useCompany, useDeleteCompany } from "@/lib/api/companies";
@@ -147,9 +148,7 @@ export function CompanyDetailPage() {
         </div>
       )}
       {tab === "Documents" && <DocumentsTab companyId={Number(companyId)} />}
-      {tab === "Generated Materials" && (
-        <p className="text-[13px] text-mute">Coming soon.</p>
-      )}
+      {tab === "Generated Materials" && <MaterialsTab companyId={Number(companyId)} />}
 
       <ConfirmDeleteDialog
         open={deleteOpen}

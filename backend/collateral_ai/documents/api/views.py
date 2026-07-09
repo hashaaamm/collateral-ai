@@ -127,18 +127,25 @@ class DocumentViewSet(
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
 
     @extend_schema(
+        request=None,
         responses=inline_serializer(
-            name="DocumentDownloadResponse",
+            name="DocumentViewUrl",
             fields={"url": serializers.URLField()},
         ),
     )
-    @action(detail=True, methods=["get"], url_path="download-url")
-    def download_url(self, request, pk=None, company_pk=None):
+    @action(detail=True, methods=["get"], url_path="view-url")
+    def view_url(self, request, pk=None, company_pk=None):
+        """Signed GET URL so the browser can open the stored PDF (spec §5.3)."""
         doc = self.get_object()
-        if not doc.storage_path or not gcs.is_configured():
+        if not gcs.is_configured():
             return Response(
-                {"detail": "Document download is not available in this environment."},
+                {"detail": "Document viewing is not configured in this environment."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if not doc.storage_path:
+            return Response(
+                {"detail": "Document has no stored file."},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response({"url": gcs.signed_get_url(doc.storage_path)})
 
