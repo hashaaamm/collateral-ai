@@ -19,6 +19,7 @@ import { CreateCompanyPage } from "@/routes/create-company";
 import { EditCompanyPage } from "@/routes/edit-company";
 import { CreatePage } from "@/routes/create";
 import { MaterialsPage } from "@/routes/materials";
+import { MaterialDetailPage } from "@/routes/material-detail";
 import { TemplatesPage } from "@/routes/templates";
 
 /** Bare root — each group provides its own chrome (or none). */
@@ -116,6 +117,11 @@ const materialsRoute = createRoute({
   path: "/materials",
   component: MaterialsPage,
 });
+const materialDetailRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/materials/$materialId",
+  component: MaterialDetailPage,
+});
 const templatesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/templates",
@@ -133,6 +139,7 @@ const routeTree = rootRoute.addChildren([
     companyEditRoute,
     createMaterialRoute,
     materialsRoute,
+    materialDetailRoute,
     templatesRoute,
   ]),
 ]);
