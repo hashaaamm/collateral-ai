@@ -97,13 +97,32 @@ export function NewsletterPreview({
             </span>
           </div>
         ))}
-        <div
-          className="mt-5 flex items-center gap-2 rounded-xl px-4 py-3 text-[13px] font-semibold"
-          style={{ background: `${theme.primary_color}14`, color: theme.primary_color }}
-        >
-          <CalendarCheck size={16} weight="fill" />
-          {output.article.cta}
-        </div>
+        {(() => {
+          const ctaClass =
+            "mt-5 flex items-center gap-2 rounded-xl px-4 py-3 text-[13px] font-semibold";
+          const ctaStyle = {
+            background: `${theme.primary_color}14`,
+            color: theme.primary_color,
+          };
+          const ctaUrl = output.article.cta_url;
+          return ctaUrl ? (
+            <a
+              href={ctaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={ctaClass}
+              style={ctaStyle}
+            >
+              <CalendarCheck size={16} weight="fill" />
+              {output.article.cta}
+            </a>
+          ) : (
+            <div className={ctaClass} style={ctaStyle}>
+              <CalendarCheck size={16} weight="fill" />
+              {output.article.cta}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
