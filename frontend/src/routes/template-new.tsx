@@ -23,11 +23,13 @@ function Stepper({
   min,
   max,
   onChange,
+  label,
 }: {
   value: number;
   min: number;
   max: number;
   onChange: (v: number) => void;
+  label?: string;
 }) {
   return (
     <span className="flex items-center gap-1 rounded-lg border border-field px-1 py-[2px]">
@@ -35,7 +37,7 @@ function Stepper({
         type="button"
         onClick={() => onChange(Math.max(min, value - 1))}
         className="p-1 text-mute hover:text-body"
-        aria-label="decrease"
+        aria-label={`Decrease ${label} limit`}
       >
         <Minus size={11} />
       </button>
@@ -44,7 +46,7 @@ function Stepper({
         type="button"
         onClick={() => onChange(Math.min(max, value + 1))}
         className="p-1 text-mute hover:text-body"
-        aria-label="increase"
+        aria-label={`Increase ${label} limit`}
       >
         <Plus size={11} />
       </button>
@@ -110,12 +112,13 @@ export function TemplateNewPage() {
     setSlots(slots.map((s, j) => (j === i ? { ...s, ...patch } : s)));
 
   const textRow = (
+    key: string,
     icon: React.ReactNode,
     label: string,
     stepper: React.ReactNode,
     onRemove?: () => void,
   ) => (
-    <div className="flex items-center gap-3 border-b border-hairline py-2 last:border-0">
+    <div key={key} className="flex items-center gap-3 border-b border-hairline py-2 last:border-0">
       <span className="flex size-[26px] items-center justify-center rounded-lg bg-brand-soft text-brand">
         {icon}
       </span>
@@ -187,6 +190,7 @@ export function TemplateNewPage() {
 
           <BuilderCard title="Text fields">
             {textRow(
+              "headline",
               <TextT size={13} />,
               "Headline",
               <Stepper
@@ -194,9 +198,11 @@ export function TemplateNewPage() {
                 min={BOUNDS.headline.min}
                 max={BOUNDS.headline.max}
                 onChange={setHeadlineMax}
+                label="headline"
               />,
             )}
             {textRow(
+              "subheadline",
               <TextT size={13} />,
               "Subheadline",
               <Stepper
@@ -204,10 +210,12 @@ export function TemplateNewPage() {
                 min={BOUNDS.subheadline.min}
                 max={BOUNDS.subheadline.max}
                 onChange={setSubheadlineMax}
+                label="subheadline"
               />,
             )}
             {Array.from({ length: bodyRows }, (_, i) =>
               textRow(
+                `body-${i}`,
                 <TextT size={13} />,
                 `Body section ${i + 1}`,
                 // All body rows share ONE limit (fixed contract, spec §7.3).
@@ -216,6 +224,7 @@ export function TemplateNewPage() {
                   min={BOUNDS.bodyWords.min}
                   max={BOUNDS.bodyWords.max}
                   onChange={setBodyMax}
+                  label={`body section ${i + 1}`}
                 />,
                 bodyRows > BOUNDS.bodyRows.min
                   ? () => setBodyRows(bodyRows - 1)
@@ -223,6 +232,7 @@ export function TemplateNewPage() {
               ),
             )}
             {textRow(
+              "cta",
               <TextT size={13} />,
               "CTA",
               <Stepper
@@ -230,6 +240,7 @@ export function TemplateNewPage() {
                 min={BOUNDS.cta.min}
                 max={BOUNDS.cta.max}
                 onChange={setCtaMax}
+                label="CTA"
               />,
             )}
             <button
@@ -278,7 +289,7 @@ export function TemplateNewPage() {
                   type="button"
                   onClick={() => setSlots(slots.filter((_, j) => j !== i))}
                   className="text-mute hover:text-destructive"
-                  aria-label={`remove slot ${slot.label}`}
+                  aria-label={`remove slot ${slot.label.trim() || i + 1}`}
                 >
                   <Trash size={14} />
                 </button>
