@@ -3,7 +3,9 @@ from __future__ import annotations
 import pytest
 from django.db.models import ProtectedError
 
+from collateral_ai.documents.tests.factories import DocumentChunkFactory
 from collateral_ai.materials.models import DEFAULT_TEMPLATE_SLUG
+from collateral_ai.materials.models import GenerationSource
 from collateral_ai.materials.models import Template
 from collateral_ai.materials.statuses import GenerationStatus
 from collateral_ai.materials.statuses import ReviewStatus
@@ -54,8 +56,6 @@ def test_template_delete_is_protected_by_materials():
 
 
 def test_source_chunk_nulls_on_chunk_delete():
-    from collateral_ai.documents.tests.factories import DocumentChunkFactory
-
     chunk = DocumentChunkFactory()
     source = GenerationSourceFactory(
         document=chunk.document,
@@ -71,6 +71,5 @@ def test_source_chunk_nulls_on_chunk_delete():
 def test_material_delete_cascades_sources():
     source = GenerationSourceFactory()
     source.material.delete()
-    from collateral_ai.materials.models import GenerationSource
 
     assert not GenerationSource.objects.filter(pk=source.pk).exists()
