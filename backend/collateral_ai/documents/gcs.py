@@ -12,6 +12,7 @@ from pathlib import PurePosixPath
 from collateral_ai.companies.gcs import _SANITIZE_RE
 from collateral_ai.companies.gcs import delete_object  # noqa: F401  (re-exported)
 from collateral_ai.companies.gcs import is_configured  # noqa: F401  (re-exported)
+from collateral_ai.companies.gcs import signed_get_url  # noqa: F401  (re-exported)
 from collateral_ai.companies.gcs import signed_upload_url  # noqa: F401  (re-exported)
 
 DOCUMENT_PREFIX = "media/companies"

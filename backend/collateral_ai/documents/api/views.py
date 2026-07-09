@@ -126,6 +126,29 @@ class DocumentViewSet(
         doc.refresh_from_db()
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
 
+    @extend_schema(
+        request=None,
+        responses=inline_serializer(
+            name="DocumentViewUrl",
+            fields={"url": serializers.URLField()},
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="view-url")
+    def view_url(self, request, pk=None, company_pk=None):
+        """Signed GET URL so the browser can open the stored PDF (spec §5.3)."""
+        doc = self.get_object()
+        if not gcs.is_configured():
+            return Response(
+                {"detail": "Document viewing is not configured in this environment."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if not doc.storage_path:
+            return Response(
+                {"detail": "Document has no stored file."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({"url": gcs.signed_get_url(doc.storage_path)})
+
     def perform_destroy(self, instance):
         if instance.storage_path and gcs.is_configured():
             gcs.delete_object(instance.storage_path)
