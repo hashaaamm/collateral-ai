@@ -5,12 +5,14 @@ from rest_framework_nested import routers as nested_routers
 
 from collateral_ai.companies.api.views import CompanyViewSet
 from collateral_ai.documents.api.views import DocumentViewSet
+from collateral_ai.materials.api.views import TemplateViewSet
 from collateral_ai.users.api.views import UserViewSet
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 router.register("users", UserViewSet)
 router.register("companies", CompanyViewSet, basename="company")
+router.register("templates", TemplateViewSet, basename="template")
 
 # Documents are a sub-resource of a company: /api/companies/{company_pk}/documents/
 companies_router = nested_routers.NestedSimpleRouter(
