@@ -91,8 +91,7 @@ class OutputValidator:
                     self._add(
                         errors,
                         STRUCTURE,
-                        f"body_sections[{i}].{field_name} must be a "
-                        "non-empty string.",
+                        f"body_sections[{i}].{field_name} must be a non-empty string.",
                     )
 
     def _check_word_limits(self, output: dict, constraints: dict, errors: list) -> None:
