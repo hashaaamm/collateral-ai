@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 
 /** App-wide providers: TanStack Query (data fetching). Wrap the tree once in main.tsx. */
 export function Providers({ children }: { children: ReactNode }) {
@@ -12,5 +13,10 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <Toaster position="bottom-right" richColors closeButton />
+    </QueryClientProvider>
+  );
 }
