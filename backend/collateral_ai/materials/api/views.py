@@ -4,10 +4,12 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter
+from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin
 from rest_framework.mixins import DestroyModelMixin
 from rest_framework.mixins import ListModelMixin
@@ -19,6 +21,7 @@ from rest_framework.viewsets import GenericViewSet
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.models import Template
 from collateral_ai.materials.statuses import GenerationStatus
+from collateral_ai.materials.statuses import ReviewStatus
 from collateral_ai.materials.worker_trigger import trigger_generation
 
 from .serializers import MaterialCreateSerializer
@@ -140,3 +143,40 @@ class MaterialViewSet(
                     job_operation_name=operation_name,
                     updated_at=timezone.now(),
                 )
+
+    @extend_schema(
+        request=None,
+        responses={
+            202: MaterialDetailSerializer,
+            409: OpenApiResponse(description="Generation already in progress"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def regenerate(self, request, pk=None):
+        material = self.get_object()
+        is_active = material.generation_status in {
+            GenerationStatus.QUEUED,
+            GenerationStatus.PROCESSING,
+        }
+        is_stale = material.updated_at < timezone.now() - STALE_AFTER
+        if is_active and not is_stale:
+            return Response(
+                {"detail": "Generation is already in progress."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        material.generation_status = GenerationStatus.QUEUED
+        material.review_status = ReviewStatus.PENDING
+        material.output_json = None
+        material.validation_result = None
+        material.retrieved_context = None
+        material.error_message = ""
+        material.job_operation_name = ""
+        material.completed_at = None
+        material.save()
+        material.sources.all().delete()
+        self._dispatch(material)
+        material.refresh_from_db()
+        return Response(
+            MaterialDetailSerializer(material, context={"request": request}).data,
+            status=status.HTTP_202_ACCEPTED,
+        )

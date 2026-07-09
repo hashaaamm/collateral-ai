@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import datetime
 from http import HTTPStatus
 from unittest import mock
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from collateral_ai.companies.tests.factories import CompanyFactory
 from collateral_ai.documents.statuses import DocumentStatus
 from collateral_ai.documents.tests.factories import DocumentFactory
+from collateral_ai.materials.models import GenerationSource
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.statuses import GenerationStatus
 from collateral_ai.materials.statuses import ReviewStatus
@@ -154,3 +157,82 @@ def test_detail_includes_template_sources_and_companies(auth_client):
     assert body["template"]["constraints"]["body_section_count"] == 2
     assert body["sender_company"]["name"] == material.sender_company.name
     assert body["sources"][0]["document"]["file_name"] == source.document.file_name
+
+
+def test_patch_review_status_requires_completed(auth_client):
+    material = MarketingMaterialFactory(generation_status=GenerationStatus.QUEUED)
+    resp = auth_client.patch(
+        f"{URL}{material.pk}/",
+        {"review_status": ReviewStatus.APPROVED},
+        format="json",
+    )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_patch_approves_completed_material(auth_client):
+    material = MarketingMaterialFactory(generation_status=GenerationStatus.COMPLETED)
+    resp = auth_client.patch(
+        f"{URL}{material.pk}/",
+        {"review_status": ReviewStatus.APPROVED},
+        format="json",
+    )
+    assert resp.status_code == HTTPStatus.OK
+    material.refresh_from_db()
+    assert material.review_status == ReviewStatus.APPROVED
+
+
+def test_patch_prompt_does_not_regenerate(auth_client):
+    material = MarketingMaterialFactory(generation_status=GenerationStatus.COMPLETED)
+    with mock.patch(TRIGGER) as trigger:
+        resp = auth_client.patch(
+            f"{URL}{material.pk}/",
+            {"prompt": "new prompt"},
+            format="json",
+        )
+    assert resp.status_code == HTTPStatus.OK
+    trigger.assert_not_called()
+
+
+def test_regenerate_conflicts_while_fresh_processing(auth_client):
+    material = MarketingMaterialFactory(generation_status=GenerationStatus.PROCESSING)
+    with mock.patch(TRIGGER) as trigger:
+        resp = auth_client.post(f"{URL}{material.pk}/regenerate/")
+    assert resp.status_code == HTTPStatus.CONFLICT
+    trigger.assert_not_called()
+
+
+def test_regenerate_allowed_when_processing_is_stale(auth_client):
+    material = MarketingMaterialFactory(generation_status=GenerationStatus.PROCESSING)
+    MarketingMaterial.objects.filter(pk=material.pk).update(
+        updated_at=timezone.now() - datetime.timedelta(minutes=16),
+    )
+    with mock.patch(TRIGGER, return_value="") as trigger:
+        resp = auth_client.post(f"{URL}{material.pk}/regenerate/")
+    assert resp.status_code == HTTPStatus.ACCEPTED
+    trigger.assert_called_once()
+
+
+def test_regenerate_resets_output_review_and_sources(auth_client):
+    material = MarketingMaterialFactory(
+        generation_status=GenerationStatus.COMPLETED,
+        review_status=ReviewStatus.APPROVED,
+        output_json={"template_id": "x"},
+        error_message="old",
+    )
+    GenerationSourceFactory(material=material)
+    with mock.patch(TRIGGER, return_value=""):
+        resp = auth_client.post(f"{URL}{material.pk}/regenerate/")
+    assert resp.status_code == HTTPStatus.ACCEPTED
+    material.refresh_from_db()
+    assert material.generation_status == GenerationStatus.QUEUED
+    assert material.review_status == ReviewStatus.PENDING
+    assert material.output_json is None
+    assert material.error_message == ""
+    assert not GenerationSource.objects.filter(material=material).exists()
+
+
+def test_delete_material(auth_client):
+    material = MarketingMaterialFactory()
+    resp = auth_client.delete(f"{URL}{material.pk}/")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not MarketingMaterial.objects.filter(pk=material.pk).exists()
