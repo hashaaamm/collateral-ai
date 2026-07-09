@@ -77,3 +77,12 @@ export function useCompleteDocument() {
       qc.invalidateQueries({ queryKey: ["documents", companyId] }),
   });
 }
+
+export async function fetchDocumentViewUrl(companyId: number, id: number): Promise<string> {
+  const { data, error } = await api.GET(
+    "/api/companies/{company_pk}/documents/{id}/view-url/",
+    { params: { path: { company_pk: companyId, id } } },
+  );
+  if (error || !data) throw new Error("view_url_failed");
+  return data.url;
+}
