@@ -94,3 +94,41 @@ def test_unknown_source_id_and_empty_references():
     assert categories(validate(output)) == {"source"}
     output["source_references"] = []
     assert categories(validate(output)) == {"source"}
+
+
+def test_non_string_body_section_text_is_structure_error_not_a_crash():
+    output = valid_output()
+    output["article"]["body_sections"][0]["text"] = True
+    result = validate(output)
+    assert not result.is_valid
+    assert categories(result) == {"structure"}
+
+
+def test_non_dict_image_slot_entry_is_image_slot_error():
+    output = valid_output()
+    output["image_slots"].append("not-a-slot")
+    result = validate(output)
+    assert not result.is_valid
+    assert categories(result) == {"image_slot"}
+
+
+def test_duplicate_output_slot_id_is_image_slot_error():
+    output = valid_output()
+    output["image_slots"].append(
+        {
+            "slot_id": "hero_image",
+            "description": "dup",
+            "source": "generated_placeholder",
+        },
+    )
+    result = validate(output)
+    assert not result.is_valid
+    assert categories(result) == {"image_slot"}
+
+
+def test_whitespace_only_headline_is_structure_error():
+    output = valid_output()
+    output["article"]["headline"] = "   "
+    result = validate(output)
+    assert not result.is_valid
+    assert categories(result) == {"structure"}

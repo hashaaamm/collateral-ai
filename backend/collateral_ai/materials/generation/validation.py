@@ -59,7 +59,8 @@ class OutputValidator:
             self._add(errors, STRUCTURE, "article must be an object.")
             return
         for key in ("headline", "subheadline", "cta"):
-            if not isinstance(article.get(key), str) or not article.get(key):
+            value = article.get(key)
+            if not isinstance(value, str) or not value.strip():
                 self._add(
                     errors,
                     STRUCTURE,
@@ -69,21 +70,30 @@ class OutputValidator:
         if not isinstance(sections, list):
             self._add(errors, STRUCTURE, "article.body_sections must be a list.")
         else:
-            for i, section in enumerate(sections, start=1):
-                if (
-                    not isinstance(section, dict)
-                    or not section.get("title")
-                    or not section.get("text")
-                ):
-                    self._add(
-                        errors,
-                        STRUCTURE,
-                        f"body_sections[{i}] needs non-empty title and text.",
-                    )
+            self._check_body_sections(sections, errors)
         if not isinstance(output.get("image_slots"), list):
             self._add(errors, STRUCTURE, "image_slots must be a list.")
         if not isinstance(output.get("source_references"), list):
             self._add(errors, STRUCTURE, "source_references must be a list.")
+
+    def _check_body_sections(self, sections: list, errors: list) -> None:
+        for i, section in enumerate(sections, start=1):
+            if not isinstance(section, dict):
+                self._add(
+                    errors,
+                    STRUCTURE,
+                    f"body_sections[{i}] must be an object.",
+                )
+                continue
+            for field_name in ("title", "text"):
+                value = section.get(field_name)
+                if not isinstance(value, str) or not value.strip():
+                    self._add(
+                        errors,
+                        STRUCTURE,
+                        f"body_sections[{i}].{field_name} must be a "
+                        "non-empty string.",
+                    )
 
     def _check_word_limits(self, output: dict, constraints: dict, errors: list) -> None:
         article = output["article"]
@@ -128,11 +138,17 @@ class OutputValidator:
 
     def _check_image_slots(self, output: dict, image_slots: list, errors: list) -> None:
         expected = {slot["slot_id"]: slot["source"] for slot in image_slots}
-        returned = {
-            slot.get("slot_id"): slot.get("source")
-            for slot in output["image_slots"]
-            if isinstance(slot, dict)
-        }
+        returned: dict[Any, Any] = {}
+        seen_slot_ids: set[Any] = set()
+        for i, slot in enumerate(output["image_slots"], start=1):
+            if not isinstance(slot, dict):
+                self._add(errors, IMAGE_SLOT, f"image_slots[{i}] must be an object.")
+                continue
+            slot_id = slot.get("slot_id")
+            if slot_id in seen_slot_ids:
+                self._add(errors, IMAGE_SLOT, f"Duplicate image slot: {slot_id}.")
+            seen_slot_ids.add(slot_id)
+            returned[slot_id] = slot.get("source")
         for slot_id, source in expected.items():
             if slot_id not in returned:
                 self._add(
