@@ -14,6 +14,7 @@ export type OutputJson = {
     subheadline: string;
     body_sections: { title: string; text: string }[];
     cta: string;
+    cta_url?: string;
   };
   image_slots: { slot_id: string; description: string; source: string }[];
   source_references: { source_id: string; used_fact: string }[];
@@ -89,6 +90,7 @@ export type MaterialCreateBody = {
   prompt: string;
   tone?: string;
   cta_style?: string;
+  cta_link?: string;
   language?: string;
 };
 

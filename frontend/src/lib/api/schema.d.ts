@@ -413,6 +413,7 @@ export interface components {
             prompt: string;
             tone?: string;
             cta_style?: string;
+            cta_link?: string;
             language?: string;
         };
         MaterialDetail: {
@@ -431,6 +432,7 @@ export interface components {
             prompt: string;
             tone?: string;
             cta_style?: string;
+            cta_link?: string;
             language?: string;
             readonly template: components["schemas"]["Template"];
             output_json?: unknown;
@@ -458,6 +460,7 @@ export interface components {
             title: string;
             description?: string;
             prompt: string;
+            cta_link?: string;
             review_status?: components["schemas"]["ReviewStatusEnum"];
         };
         PatchedCompany: {
@@ -480,6 +483,7 @@ export interface components {
             title?: string;
             description?: string;
             prompt?: string;
+            cta_link?: string;
             review_status?: components["schemas"]["ReviewStatusEnum"];
         };
         PatchedUser: {
