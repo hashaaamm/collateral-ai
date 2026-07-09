@@ -5,6 +5,7 @@ import { Buildings, CaretRight, MagnifyingGlass, Plus } from "@phosphor-icons/re
 import { CompanyLogo } from "@/components/company-logo";
 import { useCompanies } from "@/lib/api/companies";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { formatRelativeDay } from "@/lib/format";
 
 export function CompaniesListPage() {
   const [search, setSearch] = useState("");
@@ -41,10 +42,11 @@ export function CompaniesListPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-hairline bg-surface">
-        <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 border-b border-hairline bg-subtle px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-faint">
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-hairline bg-subtle px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-faint">
           <span>Company</span>
           <span>Industry</span>
           <span>Website</span>
+          <span>Last updated</span>
           <span className="w-4" />
         </div>
 
@@ -67,7 +69,7 @@ export function CompaniesListPage() {
             key={c.id}
             to="/companies/$companyId"
             params={{ companyId: String(c.id) }}
-            className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-4 border-b border-hairline px-5 py-[14px] last:border-b-0 hover:bg-subtle"
+            className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-hairline px-5 py-[14px] last:border-b-0 hover:bg-subtle"
           >
             <span className="flex items-center gap-3">
               <CompanyLogo name={c.name} logoUrl={c.logo_url} />
@@ -75,6 +77,7 @@ export function CompaniesListPage() {
             </span>
             <span className="text-[13px] text-body">{c.industry || "—"}</span>
             <span className="truncate text-[13px] text-subtext">{c.website || "—"}</span>
+            <span className="text-[13px] text-subtext">{formatRelativeDay(c.last_updated)}</span>
             <CaretRight size={14} className="text-faint" />
           </Link>
         ))}
