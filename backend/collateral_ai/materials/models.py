@@ -78,6 +78,7 @@ class MarketingMaterial(models.Model):
     prompt = models.TextField(_("prompt"))
     tone = models.CharField(_("tone"), max_length=32, default="professional")
     cta_style = models.CharField(_("cta style"), max_length=32, default="soft")
+    cta_link = models.URLField(_("cta link"), blank=True, default="", max_length=500)
     language = models.CharField(_("language"), max_length=32, default="english")
     generation_status = models.CharField(
         _("generation status"),

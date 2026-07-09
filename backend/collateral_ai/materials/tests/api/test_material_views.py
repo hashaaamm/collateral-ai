@@ -246,3 +246,35 @@ def test_delete_material(auth_client):
     assert resp.status_code == HTTPStatus.NO_CONTENT
     assert not MarketingMaterial.objects.filter(pk=material.pk).exists()
     assert not GenerationSource.objects.filter(material_id=material.pk).exists()
+
+
+def test_create_accepts_valid_cta_link(auth_client):
+    sender, receiver = companies_with_docs()
+    template = TemplateFactory()
+    body = create_body(sender, receiver, template) | {
+        "cta_link": "https://example.com/demo",
+    }
+    with mock.patch(TRIGGER, return_value="operations/abc"):
+        resp = auth_client.post(URL, body, format="json")
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.data["cta_link"] == "https://example.com/demo"
+
+
+def test_create_rejects_malformed_cta_link(auth_client):
+    sender, receiver = companies_with_docs()
+    template = TemplateFactory()
+    body = create_body(sender, receiver, template) | {"cta_link": "not-a-url"}
+    with mock.patch(TRIGGER, return_value="operations/abc"):
+        resp = auth_client.post(URL, body, format="json")
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert "cta_link" in resp.data
+
+
+def test_create_allows_blank_cta_link(auth_client):
+    sender, receiver = companies_with_docs()
+    template = TemplateFactory()
+    body = create_body(sender, receiver, template)  # no cta_link key
+    with mock.patch(TRIGGER, return_value="operations/abc"):
+        resp = auth_client.post(URL, body, format="json")
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.data["cta_link"] == ""

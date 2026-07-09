@@ -130,6 +130,7 @@ export function CreatePage() {
   const [prompt, setPrompt] = useState("");
   const [tone, setTone] = useState<string>("Professional");
   const [ctaStyle, setCtaStyle] = useState<string>("Soft");
+  const [ctaLink, setCtaLink] = useState("");
   const [language, setLanguage] = useState("English");
   const [error, setError] = useState<string | null>(null);
 
@@ -172,6 +173,7 @@ export function CreatePage() {
         prompt: prompt.trim(),
         tone: tone.toLowerCase(),
         cta_style: ctaStyle.toLowerCase(),
+        cta_link: ctaLink.trim() || undefined,
         language: language.toLowerCase(),
       },
       {
@@ -190,6 +192,7 @@ export function CreatePage() {
     ["Receiver", receiver?.name ?? "—"],
     ["Template", template?.name ?? "—"],
     ["Tone / CTA", `${tone} / ${ctaStyle}`],
+    ["CTA link", ctaLink.trim() || "—"],
     [
       "Grounding",
       `${(senderDocs.data ?? 0) + (receiverDocs.data ?? 0)} processed documents across both companies`,
@@ -334,6 +337,18 @@ export function CreatePage() {
                 rows={4}
                 placeholder="e.g. Generate a short B2B article about how we can help the receiver improve warehouse efficiency."
                 className="w-full rounded-[10px] border border-field bg-subtle p-3 text-[13px] text-body outline-none focus:border-brand"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-body">
+                CTA link <span className="font-normal text-mute">(optional)</span>
+              </label>
+              <input
+                type="url"
+                value={ctaLink}
+                onChange={(e) => setCtaLink(e.target.value)}
+                placeholder="https://example.com/book-a-demo"
+                className="w-full rounded-[10px] border border-field bg-subtle px-3 py-[8px] text-[13px] text-body outline-none focus:border-brand"
               />
             </div>
             <div className="grid grid-cols-3 gap-4">

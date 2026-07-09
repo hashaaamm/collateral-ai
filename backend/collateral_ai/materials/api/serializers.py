@@ -163,6 +163,7 @@ class MaterialDetailSerializer(MaterialListSerializer):
             "prompt",
             "tone",
             "cta_style",
+            "cta_link",
             "language",
             "template",
             "output_json",
@@ -186,6 +187,7 @@ class MaterialCreateSerializer(serializers.ModelSerializer[MarketingMaterial]):
             "prompt",
             "tone",
             "cta_style",
+            "cta_link",
             "language",
         ]
         read_only_fields = ["id"]
@@ -219,7 +221,7 @@ class MaterialCreateSerializer(serializers.ModelSerializer[MarketingMaterial]):
 class MaterialUpdateSerializer(serializers.ModelSerializer[MarketingMaterial]):
     class Meta:
         model = MarketingMaterial
-        fields = ["id", "title", "description", "prompt", "review_status"]
+        fields = ["id", "title", "description", "prompt", "cta_link", "review_status"]
         read_only_fields = ["id"]
 
     def validate_review_status(self, value: str) -> str:

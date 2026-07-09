@@ -73,3 +73,8 @@ def test_material_delete_cascades_sources():
     source.material.delete()
 
     assert not GenerationSource.objects.filter(pk=source.pk).exists()
+
+
+def test_cta_link_defaults_blank():
+    material = MarketingMaterialFactory()
+    assert material.cta_link == ""
