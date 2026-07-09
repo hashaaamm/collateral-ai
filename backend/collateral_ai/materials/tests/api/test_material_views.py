@@ -218,6 +218,10 @@ def test_regenerate_resets_output_review_and_sources(auth_client):
         review_status=ReviewStatus.APPROVED,
         output_json={"template_id": "x"},
         error_message="old",
+        validation_result={"valid": True},
+        retrieved_context={"chunks": ["a"]},
+        job_operation_name="operations/old",
+        completed_at=timezone.now(),
     )
     GenerationSourceFactory(material=material)
     with mock.patch(TRIGGER, return_value=""):
@@ -228,11 +232,17 @@ def test_regenerate_resets_output_review_and_sources(auth_client):
     assert material.review_status == ReviewStatus.PENDING
     assert material.output_json is None
     assert material.error_message == ""
+    assert material.validation_result is None
+    assert material.retrieved_context is None
+    assert material.job_operation_name == ""
+    assert material.completed_at is None
     assert not GenerationSource.objects.filter(material=material).exists()
 
 
 def test_delete_material(auth_client):
     material = MarketingMaterialFactory()
+    GenerationSourceFactory(material=material)
     resp = auth_client.delete(f"{URL}{material.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT
     assert not MarketingMaterial.objects.filter(pk=material.pk).exists()
+    assert not GenerationSource.objects.filter(material_id=material.pk).exists()

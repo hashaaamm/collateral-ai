@@ -153,27 +153,34 @@ class MaterialViewSet(
     )
     @action(detail=True, methods=["post"])
     def regenerate(self, request, pk=None):
+        # get_object() first so DRF's 404/permission checks still apply against
+        # the unlocked queryset; the locked re-fetch below guards the actual
+        # read-modify-write against a concurrent worker completion.
         material = self.get_object()
-        is_active = material.generation_status in {
-            GenerationStatus.QUEUED,
-            GenerationStatus.PROCESSING,
-        }
-        is_stale = material.updated_at < timezone.now() - STALE_AFTER
-        if is_active and not is_stale:
-            return Response(
-                {"detail": "Generation is already in progress."},
-                status=status.HTTP_409_CONFLICT,
+        with transaction.atomic():
+            material = MarketingMaterial.objects.select_for_update().get(
+                pk=material.pk,
             )
-        material.generation_status = GenerationStatus.QUEUED
-        material.review_status = ReviewStatus.PENDING
-        material.output_json = None
-        material.validation_result = None
-        material.retrieved_context = None
-        material.error_message = ""
-        material.job_operation_name = ""
-        material.completed_at = None
-        material.save()
-        material.sources.all().delete()
+            is_active = material.generation_status in {
+                GenerationStatus.QUEUED,
+                GenerationStatus.PROCESSING,
+            }
+            is_stale = material.updated_at < timezone.now() - STALE_AFTER
+            if is_active and not is_stale:
+                return Response(
+                    {"detail": "Generation is already in progress."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            material.generation_status = GenerationStatus.QUEUED
+            material.review_status = ReviewStatus.PENDING
+            material.output_json = None
+            material.validation_result = None
+            material.retrieved_context = None
+            material.error_message = ""
+            material.job_operation_name = ""
+            material.completed_at = None
+            material.save()
+            material.sources.all().delete()
         self._dispatch(material)
         material.refresh_from_db()
         return Response(
