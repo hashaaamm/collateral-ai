@@ -19,6 +19,12 @@ const CHIPS = [
 ] as const;
 type Chip = (typeof CHIPS)[number][0];
 
+const pillOf = (m: MaterialList) =>
+  materialPillStatus({
+    generation_status: m.generation_status ?? "queued",
+    review_status: m.review_status ?? "pending",
+  });
+
 export function MaterialsPage() {
   const [search, setSearch] = useState("");
   const [chip, setChip] = useState<Chip>("all");
@@ -29,26 +35,8 @@ export function MaterialsPage() {
   const navigate = useNavigate();
 
   const all = materials ?? [];
-  const count = (c: Chip) =>
-    c === "all"
-      ? all.length
-      : all.filter(
-          (m) =>
-            materialPillStatus({
-              generation_status: m.generation_status ?? "queued",
-              review_status: m.review_status ?? "pending",
-            }) === c,
-        ).length;
-  const rows =
-    chip === "all"
-      ? all
-      : all.filter(
-          (m) =>
-            materialPillStatus({
-              generation_status: m.generation_status ?? "queued",
-              review_status: m.review_status ?? "pending",
-            }) === chip,
-        );
+  const count = (c: Chip) => (c === "all" ? all.length : all.filter((m) => pillOf(m) === c).length);
+  const rows = chip === "all" ? all : all.filter((m) => pillOf(m) === chip);
 
   const companyCell = (company: MaterialList["sender_company"]) => (
     <span className="flex items-center gap-2">
@@ -132,33 +120,40 @@ export function MaterialsPage() {
                 </td>
               </tr>
             )}
-            {rows.map((m) => (
-              <tr
-                key={m.id}
-                onClick={() =>
-                  navigate({
-                    to: "/materials/$materialId",
-                    params: { materialId: String(m.id) },
-                  })
-                }
-                className="cursor-pointer border-b border-hairline last:border-0 hover:bg-[#fafafb]"
-              >
-                <td className="px-5 py-3 text-[13px] font-semibold text-ink">{m.title}</td>
-                <td className="px-5 py-3">{companyCell(m.sender_company)}</td>
-                <td className="px-5 py-3">{companyCell(m.receiver_company)}</td>
-                <td className="px-5 py-3">
-                  <StatusPill
-                    status={materialPillStatus({
-                      generation_status: m.generation_status ?? "queued",
-                      review_status: m.review_status ?? "pending",
-                    })}
-                  />
-                </td>
-                <td className="px-5 py-3 text-[12.5px] text-subtext">
-                  {new Date(m.created_at).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
+            {rows.map((m) => {
+              const goToDetail = () =>
+                navigate({
+                  to: "/materials/$materialId",
+                  params: { materialId: String(m.id) },
+                });
+              return (
+                <tr
+                  key={m.id}
+                  tabIndex={0}
+                  role="link"
+                  onClick={goToDetail}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      goToDetail();
+                    } else if (e.key === " ") {
+                      e.preventDefault();
+                      goToDetail();
+                    }
+                  }}
+                  className="cursor-pointer border-b border-hairline last:border-0 hover:bg-[#fafafb] focus-visible:bg-[#fafafb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset"
+                >
+                  <td className="px-5 py-3 text-[13px] font-semibold text-ink">{m.title}</td>
+                  <td className="px-5 py-3">{companyCell(m.sender_company)}</td>
+                  <td className="px-5 py-3">{companyCell(m.receiver_company)}</td>
+                  <td className="px-5 py-3">
+                    <StatusPill status={pillOf(m)} />
+                  </td>
+                  <td className="px-5 py-3 text-[12.5px] text-subtext">
+                    {new Date(m.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
