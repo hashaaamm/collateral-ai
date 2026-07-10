@@ -4,12 +4,10 @@ import {
   createRouter,
   redirect,
   Outlet,
-  Link,
 } from "@tanstack/react-router";
 
 import { isAuthenticated } from "@/lib/auth";
-import { HomePage } from "@/routes/home";
-import { AboutPage } from "@/routes/about";
+import { LandingPage } from "@/routes/landing";
 import { LoginPage } from "@/routes/login";
 import { AppShell } from "@/components/app-shell";
 import { DashboardPage } from "@/routes/dashboard";
@@ -26,41 +24,11 @@ import { TemplateNewPage } from "@/routes/template-new";
 /** Bare root — each group provides its own chrome (or none). */
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
-/** Existing marketing shell (top nav) — unchanged public pages. */
-const marketingRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  id: "marketing",
-  component: function MarketingLayout() {
-    return (
-      <div className="min-h-dvh bg-background text-foreground">
-        <header className="border-b">
-          <nav className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3 text-sm">
-            <Link to="/" className="font-semibold [&.active]:underline">
-              {"Collateral AI"}
-            </Link>
-            <Link to="/about" className="[&.active]:underline">
-              About
-            </Link>
-          </nav>
-        </header>
-        <main className="mx-auto max-w-3xl px-4 py-8">
-          <Outlet />
-        </main>
-      </div>
-    );
-  },
-});
-
+/** Public marketing landing page — full-bleed, provides its own chrome. */
 const indexRoute = createRoute({
-  getParentRoute: () => marketingRoute,
+  getParentRoute: () => rootRoute,
   path: "/",
-  component: HomePage,
-});
-
-const aboutRoute = createRoute({
-  getParentRoute: () => marketingRoute,
-  path: "/about",
-  component: AboutPage,
+  component: LandingPage,
 });
 
 /** Standalone login. Logged-in users skip straight to the dashboard. */
@@ -135,7 +103,7 @@ const templateNewRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  marketingRoute.addChildren([indexRoute, aboutRoute]),
+  indexRoute,
   loginRoute,
   appRoute.addChildren([
     dashboardRoute,
