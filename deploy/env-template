@@ -14,6 +14,17 @@ VPC_CONNECTOR_CIDR=10.8.0.0/28
 VPC_CONNECTOR_MIN_THROUGHPUT=200
 VPC_CONNECTOR_MAX_THROUGHPUT=300
 
+# --- GKE Autopilot (async worker jobs) ---
+# CI/operator egress IP (CIDR) allowed to reach the cluster's PUBLIC control-plane endpoint
+# for `pulumi up` / kubectl. The backend's runtime path is private and does NOT need this.
+# Leave blank to allow no public access (then apply namespace/KSA from within the VPC).
+GKE_MASTER_AUTHORIZED_CIDR=
+# Control-plane /28 — must not overlap the subnet, connector, or the private-IP peering range.
+GKE_MASTER_CIDR=172.16.0.0/28
+# VPC-native secondary ranges for GKE pods/services — must not overlap the above.
+GKE_POD_CIDR=10.20.0.0/16
+GKE_SVC_CIDR=10.30.0.0/20
+
 # --- Database ---
 DB_NAME=collateral_ai_db
 DB_USER=collateral_ai_user
