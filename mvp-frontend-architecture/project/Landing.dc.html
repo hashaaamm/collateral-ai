@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: #ffffff; font-family: "Hanken Grotesk", system-ui, -apple-system, sans-serif; color: #1a1a1e; -webkit-font-smoothing: antialiased; }
+  a { color: #5b5bd6; text-decoration: none; }
+  a:hover { color: #4f4fce; }
+  @keyframes heroUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</helmet>
+
+<div style="background: #ffffff">
+
+  <!-- Announcement bar -->
+  <sc-if value="{{ showAnnouncement }}" hint-placeholder-val="{{ false }}">
+    <div style="background: #1a1a1e; color: #ffffff; text-align: center; padding: 10px 20px; font-size: 13px; font-weight: 500">
+      Collateral AI is live — <a href="#cta" style="color: #b9b9f2">sign in and start creating</a>
+    </div>
+  </sc-if>
+
+  <!-- Nav -->
+  <nav style="position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.78); backdrop-filter: saturate(1.8) blur(20px); -webkit-backdrop-filter: saturate(1.8) blur(20px); border-bottom: 1px solid rgba(0,0,0,.06)">
+    <div style="max-width: 1024px; margin: 0 auto; padding: 0 24px; height: 52px; display: flex; align-items: center; gap: 28px">
+      <div style="display: flex; align-items: center; gap: 9px; margin-right: auto">
+        <div style="width: 24px; height: 24px; border-radius: 7px; background: #5b5bd6; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(91,91,214,.35)">
+          <i class="ph-fill ph-stack" style="color: #ffffff; font-size: 14px"></i>
+        </div>
+        <span style="font-size: 15px; font-weight: 700; letter-spacing: -0.02em">Collateral AI</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 24px; font-size: 13px; font-weight: 500">
+        <a href="#how" style="color: #55555e" style-hover="{{ hovNavLink }}">How it works</a>
+        <a href="#features" style="color: #55555e" style-hover="{{ hovNavLink }}">Why Collateral</a>
+        <a href="#cta" style="background: #1a1a1e; color: #ffffff; padding: 7px 16px; border-radius: 100px; font-weight: 600" style-hover="{{ hovDark }}">Get started</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header style="text-align: center; padding: 96px 24px 0; animation: heroUp .7s cubic-bezier(.2,.7,.2,1) both">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 11px; margin-bottom: 28px">
+      <div style="width: 42px; height: 42px; border-radius: 12px; background: #5b5bd6; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 26px rgba(91,91,214,.45)"><i class="ph-fill ph-stack" style="color: #ffffff; font-size: 24px"></i></div>
+      <span style="font-size: 21px; font-weight: 800; letter-spacing: -0.02em">Collateral AI</span>
+    </div>
+    <h1 style="margin: 0 auto; max-width: 820px; font-size: clamp(44px, 7vw, 76px); font-weight: 800; letter-spacing: -0.045em; line-height: 1.02; text-wrap: balance">Marketing collateral. On autopilot.</h1>
+    <p style="margin: 26px auto 0; max-width: 580px; font-size: 20px; line-height: 1.5; color: #55555e; text-wrap: pretty">Give it your company&rsquo;s documents — and your prospect&rsquo;s. Collateral AI writes tailored, factually-grounded B2B materials that speak to both sides of the deal.</p>
+    <div style="display: flex; justify-content: center; gap: 14px; margin-top: 34px">
+      <a href="#cta" style="background: #5b5bd6; color: #ffffff; padding: 13px 28px; border-radius: 100px; font-size: 15.5px; font-weight: 600" style-hover="{{ hovPrimary }}">Get started</a>
+      <a href="#how" style="border: 1px solid #d8d8de; color: #1a1a1e; padding: 13px 28px; border-radius: 100px; font-size: 15.5px; font-weight: 600" style-hover="{{ hovGhost }}">See how it works</a>
+    </div>
+    <div data-screen-label="Dashboard hero mock" style="max-width: 1024px; margin: 72px auto 0; border-radius: 18px 18px 0 0; border: 1px solid #ececef; border-bottom: none; box-shadow: 0 40px 120px -32px rgba(30,30,80,.28); overflow: hidden; background: #ffffff; text-align: left">
+      <div style="display: flex">
+        <div style="width: 208px; flex: none; border-right: 1px solid #ececef; background: #ffffff; display: flex; flex-direction: column; padding: 16px 12px 14px">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 0 6px">
+            <div style="width: 26px; height: 26px; border-radius: 8px; background: #5b5bd6; display: flex; align-items: center; justify-content: center"><i class="ph-fill ph-stack" style="color: #ffffff; font-size: 14px"></i></div>
+            <span style="font-size: 14px; font-weight: 700; letter-spacing: -0.02em">Collateral AI</span>
+            <span style="font-size: 8.5px; font-weight: 600; color: #9a9aa5; border: 1px solid #ececef; border-radius: 20px; padding: 2px 6px">MVP</span>
+          </div>
+          <div style="font-size: 10px; font-weight: 600; letter-spacing: .05em; color: #a8a8b0; margin: 18px 6px 8px">WORKSPACE</div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; background: #eef0fe; color: #1a1a1e; font-size: 12.5px; font-weight: 600"><i class="ph ph-squares-four" style="font-size: 16px; color: #5b5bd6"></i>Dashboard</div>
+            <div style="display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; color: #6b6b76; font-size: 12.5px; font-weight: 500"><i class="ph ph-buildings" style="font-size: 16px"></i>Companies</div>
+            <div style="display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; color: #6b6b76; font-size: 12.5px; font-weight: 500"><i class="ph ph-magic-wand" style="font-size: 16px"></i>Create Material</div>
+            <div style="display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; color: #6b6b76; font-size: 12.5px; font-weight: 500"><i class="ph ph-list-checks" style="font-size: 16px"></i>Marketing Requests</div>
+            <div style="display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; color: #6b6b76; font-size: 12.5px; font-weight: 500"><i class="ph ph-layout" style="font-size: 16px"></i>Templates</div>
+          </div>
+          <div style="margin-top: auto; background: #f7f7fb; border-radius: 10px; padding: 8px; display: flex; align-items: center; gap: 8px">
+            <div style="width: 26px; height: 26px; border-radius: 7px; background: #eaeafb; color: #5b5bd6; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; flex: none">JP</div>
+            <div style="min-width: 0; flex: 1"><div style="font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Julie Plusquin</div><div style="font-size: 9.5px; color: #9a9aa5">Editor</div></div>
+            <i class="ph ph-sign-out" style="color: #9a9aa5; font-size: 13px"></i>
+          </div>
+        </div>
+        <div style="flex: 1; background: #f6f6f8; padding: 24px 28px 26px; min-width: 0">
+          <div style="font-size: 11.5px; color: #9a9aa5">Wednesday, July 6</div>
+          <div style="font-size: 22px; font-weight: 700; letter-spacing: -0.03em; margin-top: 3px">Good morning, Julie</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px">
+            <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 12px; padding: 13px 14px"><div style="display: flex; align-items: flex-start; justify-content: space-between"><span style="font-size: 11px; color: #77777f">Companies</span><i class="ph ph-buildings" style="color: #b7b7c0; font-size: 13px"></i></div><div style="font-size: 22px; font-weight: 700; margin-top: 5px">6</div><div style="font-size: 10.5px; color: #16a34a; margin-top: 2px">+2 this week</div></div>
+            <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 12px; padding: 13px 14px"><div style="display: flex; align-items: flex-start; justify-content: space-between"><span style="font-size: 11px; color: #77777f">Documents processed</span><i class="ph ph-file-text" style="color: #b7b7c0; font-size: 13px"></i></div><div style="font-size: 22px; font-weight: 700; margin-top: 5px">18</div><div style="font-size: 10.5px; color: #9a9aa5; margin-top: 2px">2 processing</div></div>
+            <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 12px; padding: 13px 14px"><div style="display: flex; align-items: flex-start; justify-content: space-between"><span style="font-size: 11px; color: #77777f">Materials generated</span><i class="ph ph-magic-wand" style="color: #b7b7c0; font-size: 13px"></i></div><div style="font-size: 22px; font-weight: 700; margin-top: 5px">11</div><div style="font-size: 10.5px; color: #16a34a; margin-top: 2px">+4 this week</div></div>
+            <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 12px; padding: 13px 14px"><div style="display: flex; align-items: flex-start; justify-content: space-between"><span style="font-size: 11px; color: #77777f">Needs review</span><i class="ph ph-flag" style="color: #b7b7c0; font-size: 13px"></i></div><div style="font-size: 22px; font-weight: 700; margin-top: 5px">2</div><div style="font-size: 10.5px; color: #b45309; margin-top: 2px">Awaiting approval</div></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; margin-top: 14px; align-items: start">
+            <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 12px; overflow: hidden">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f0f0f2"><span style="font-size: 13px; font-weight: 600">Recent materials</span><span style="font-size: 11.5px; font-weight: 600; color: #5b5bd6">View all</span></div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #f4f4f6">
+                <div style="min-width: 0"><div style="font-size: 12.5px; font-weight: 600">Reliability for Every Booking</div><div style="display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #9a9aa5; margin-top: 2px"><img src="assets/datadog-mark.png" alt="" style="width: 13px; height: 13px; border-radius: 3px">Datadog<i class="ph-bold ph-arrow-right" style="font-size: 9px; color: #b7b7c0"></i><img src="assets/airbnb-mark.png" alt="" style="width: 13px; height: 13px; border-radius: 3px">Airbnb</div></div>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #16a34a; background: #e7f6ed; padding: 3px 9px; border-radius: 20px; flex: none"><i class="ph-fill ph-check-circle" style="font-size: 11px"></i>Completed</span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #f4f4f6">
+                <div style="min-width: 0"><div style="font-size: 12.5px; font-weight: 600">Cutting MTTR at Scale</div><div style="display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #9a9aa5; margin-top: 2px"><img src="assets/datadog-mark.png" alt="" style="width: 13px; height: 13px; border-radius: 3px">Datadog<i class="ph-bold ph-arrow-right" style="font-size: 9px; color: #b7b7c0"></i><img src="assets/airbnb-mark.png" alt="" style="width: 13px; height: 13px; border-radius: 3px">Airbnb</div></div>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #b45309; background: #fdf0dd; padding: 3px 9px; border-radius: 20px; flex: none"><i class="ph ph-circle-notch" style="font-size: 11px"></i>Processing</span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px">
+                <div style="min-width: 0"><div style="font-size: 12.5px; font-weight: 600">Payments Observability Brief</div><div style="display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #9a9aa5; margin-top: 2px"><img src="assets/datadog-mark.png" alt="" style="width: 13px; height: 13px; border-radius: 3px">Datadog<i class="ph-bold ph-arrow-right" style="font-size: 9px; color: #b7b7c0"></i><img src="assets/airbnb-mark.png" alt="" style="width: 13px; height: 13px; border-radius: 3px">Airbnb</div></div>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #7c3aed; background: #f1eafe; padding: 3px 9px; border-radius: 20px; flex: none"><i class="ph-fill ph-flag" style="font-size: 11px"></i>Needs Review</span>
+              </div>
+            </div>
+            <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 12px; padding: 14px 16px">
+              <div style="font-size: 13px; font-weight: 600">Quick start</div>
+              <div style="font-size: 11px; color: #9a9aa5; line-height: 1.5; margin-top: 3px">Go from company context to a finished article in three steps.</div>
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 11px">
+                <div style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #e7f6ed; display: flex; align-items: center; justify-content: center; flex: none"><i class="ph-bold ph-check" style="color: #16a34a; font-size: 11px"></i></span><div><div style="font-size: 11.5px; font-weight: 600">Add companies</div><div style="font-size: 9.5px; color: #9a9aa5">6 profiles ready</div></div></div>
+                <div style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #fdf0dd; display: flex; align-items: center; justify-content: center; flex: none"><i class="ph ph-circle-notch" style="color: #b45309; font-size: 11px"></i></span><div><div style="font-size: 11.5px; font-weight: 600">Upload documents</div><div style="font-size: 9.5px; color: #9a9aa5">2 still processing</div></div></div>
+                <div style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #eef0fe; display: flex; align-items: center; justify-content: center; flex: none; font-size: 10.5px; font-weight: 700; color: #5b5bd6">3</span><div><div style="font-size: 11.5px; font-weight: 600">Generate material</div><div style="font-size: 9.5px; color: #9a9aa5">Sender → receiver article</div></div></div>
+              </div>
+              <div style="margin-top: 13px; background: #5b5bd6; color: #ffffff; border-radius: 9px; padding: 9px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px"><i class="ph-fill ph-magic-wand" style="font-size: 13px"></i>Create Material</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Value statement -->
+  <section style="background: #f6f6f8; border-top: 1px solid #ececef; padding: 120px 24px; text-align: center">
+    <p style="margin: 0 auto; max-width: 780px; font-size: clamp(26px, 3.6vw, 40px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.25; text-wrap: balance">It doesn&rsquo;t just know your company. It knows who you&rsquo;re pitching. <span style="color: #9a9aa5">Every material is grounded in two sets of documents — the sender&rsquo;s and the receiver&rsquo;s.</span></p>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" style="padding: 110px 0 0">
+    <div style="text-align: center; padding: 0 24px">
+      <div style="font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #5b5bd6">How it works</div>
+      <h2 style="margin: 14px auto 0; max-width: 640px; font-size: clamp(34px, 4.6vw, 52px); font-weight: 800; letter-spacing: -0.04em; line-height: 1.06; text-wrap: balance">From PDFs to publish-ready. Four steps.</h2>
+    </div>
+
+    <!-- Phase 01 -->
+    <div style="padding: 96px 24px 0">
+      <div style="max-width: 1024px; margin: 0 auto">
+        <div style="display: flex; align-items: baseline; gap: 18px; max-width: 640px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: #5b5bd6; letter-spacing: .06em">01</span>
+          <div>
+            <h3 style="margin: 0; font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.12">Create both companies</h3>
+            <p style="margin: 14px 0 0; font-size: 17px; line-height: 1.55; color: #55555e; text-wrap: pretty">Profile the sender — you — and the receiver you&rsquo;re pitching. A name and an industry is enough to start; the documents fill in the rest.</p>
+          </div>
+        </div>
+        <div style="margin-top: 40px; border-radius: 18px; padding: clamp(24px, 4vw, 56px); background: linear-gradient(135deg, #eef0fe, #f4f4fd)">
+          <div style="position: relative; max-width: 560px; margin: 0 auto">
+            <div style="background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 14px; box-shadow: 0 24px 70px -24px rgba(30,30,80,.35); padding: 22px">
+              <div>
+                <div style="font-size: 11px; font-weight: 600; color: #77777f; margin-bottom: 6px">Company logo</div>
+                <div style="display: flex; align-items: center; gap: 14px; border: 1px solid #e4e4e9; background: #fbfbfc; border-radius: 11px; padding: 13px 14px">
+                  <img src="assets/datadog-logo.png" alt="Datadog logo" style="height: 28px; width: auto">
+                  <div style="margin-left: auto; display: flex; align-items: center; gap: 9px">
+                    <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #16a34a; background: #e7f6ed; padding: 3px 9px; border-radius: 20px"><i class="ph-fill ph-check-circle" style="font-size: 12px"></i>datadog-logo.svg</span>
+                    <span style="font-size: 11.5px; font-weight: 600; color: #55555e; border: 1px solid #e6e6ea; border-radius: 8px; padding: 5px 10px; background: #ffffff">Replace</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px">
+                <div><div style="font-size: 11px; font-weight: 600; color: #77777f; margin-bottom: 5px">Company name</div><div style="border: 1px solid #e4e4e9; background: #fbfbfc; border-radius: 9px; padding: 9px 11px; font-size: 13px; color: #2f2f38">Datadog</div></div>
+                <div><div style="font-size: 11px; font-weight: 600; color: #77777f; margin-bottom: 5px">Website</div><div style="border: 1px solid #e4e4e9; background: #fbfbfc; border-radius: 9px; padding: 9px 11px; font-size: 13px; color: #2f2f38">datadoghq.com</div></div>
+                <div><div style="font-size: 11px; font-weight: 600; color: #77777f; margin-bottom: 5px">Industry</div><div style="border: 1px solid #e4e4e9; background: #fbfbfc; border-radius: 9px; padding: 9px 11px; font-size: 13px; color: #2f2f38">Cloud Monitoring</div></div>
+                <div><div style="font-size: 11px; font-weight: 600; color: #77777f; margin-bottom: 5px">Tone of voice</div><div style="border: 1px solid #e4e4e9; background: #fbfbfc; border-radius: 9px; padding: 9px 11px; font-size: 13px; color: #2f2f38">Professional</div></div>
+              </div>
+              <div style="display: flex; align-items: flex-start; gap: 8px; background: #f4f4fd; border: 1px solid #e6e6fb; border-radius: 10px; padding: 10px 12px; margin-top: 14px">
+                <i class="ph-fill ph-sparkle" style="color: #5b5bd6; font-size: 15px; margin-top: 1px"></i>
+                <span style="font-size: 12px; line-height: 1.5; color: #4a4a52">Leave the rest blank — after documents upload, the profile fills itself in.</span>
+              </div>
+              <div style="display: flex; justify-content: flex-end; margin-top: 16px">
+                <span style="background: #5b5bd6; color: #ffffff; border-radius: 9px; padding: 9px 14px; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px">Create &amp; upload documents<i class="ph-bold ph-arrow-right" style="font-size: 13px"></i></span>
+              </div>
+            </div>
+            <div style="position: absolute; top: -22px; right: -14px; background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 12px; box-shadow: 0 16px 44px -16px rgba(30,30,80,.35); padding: 11px 14px; display: flex; align-items: center; gap: 10px">
+              <div>
+                <img src="assets/airbnb-logo.png" alt="Airbnb logo" style="height: 21px; width: auto; display: block">
+                <div style="font-size: 10.5px; color: #9a9aa5; margin-top: 5px">Travel Marketplace · Receiver</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 02 -->
+    <div style="padding: 96px 24px 0">
+      <div style="max-width: 1024px; margin: 0 auto">
+        <div style="display: flex; align-items: baseline; gap: 18px; max-width: 640px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: #5b5bd6; letter-spacing: .06em">02</span>
+          <div>
+            <h3 style="margin: 0; font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.12">Upload the documents</h3>
+            <p style="margin: 14px 0 0; font-size: 17px; line-height: 1.55; color: #55555e; text-wrap: pretty">Drop PDFs into either company — profiles, case studies, reports. Text, tables, and images are extracted automatically and become the grounding for everything generated.</p>
+          </div>
+        </div>
+        <div style="margin-top: 40px; border-radius: 18px; padding: clamp(24px, 4vw, 56px); background: linear-gradient(135deg, #fdf0dd, #fbf6ec)">
+          <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 14px; box-shadow: 0 24px 70px -24px rgba(30,30,80,.35); padding: 20px">
+            <div style="display: flex; align-items: center; gap: 10px">
+              <img src="assets/datadog-mark.png" alt="Datadog logo" style="width: 30px; height: 30px; flex: none; border-radius: 7px">
+              <span style="font-size: 14px; font-weight: 700">Datadog</span>
+              <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9a9aa5">3 documents</span>
+            </div>
+            <div style="margin-top: 14px; border: 1px dashed #cfcfe4; background: #fafafe; border-radius: 11px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="width: 34px; height: 34px; border-radius: 9px; background: #eef0fe; display: flex; align-items: center; justify-content: center"><i class="ph ph-upload-simple" style="color: #5b5bd6; font-size: 18px"></i></div>
+              <div style="font-size: 13px; font-weight: 600">Drop PDFs here or <span style="color: #5b5bd6">browse</span></div>
+              <div style="font-size: 11.5px; color: #9a9aa5">Text, tables and images extracted automatically</div>
+            </div>
+            <div style="margin-top: 14px; border: 1px solid #f0f0f2; border-radius: 11px; overflow: hidden">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 13px">
+                <i class="ph-fill ph-file-pdf" style="color: #dc4b3e; font-size: 19px"></i>
+                <div style="flex: 1; min-width: 0"><div style="font-size: 13px; font-weight: 600">platform-overview.pdf</div><div style="font-size: 11px; color: #9a9aa5; margin-top: 1px">24 pages · 96 chunks · 6 tables · 12 images</div></div>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #16a34a; background: #e7f6ed; padding: 3px 8px; border-radius: 20px"><i class="ph-fill ph-check-circle" style="font-size: 11px"></i>Processed</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-top: 1px solid #f4f4f6">
+                <i class="ph-fill ph-file-pdf" style="color: #dc4b3e; font-size: 19px"></i>
+                <div style="flex: 1; min-width: 0"><div style="font-size: 13px; font-weight: 600">apm-case-study.pdf</div><div style="font-size: 11px; color: #9a9aa5; margin-top: 1px">8 pages · 31 chunks · 2 tables · 4 images</div></div>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #16a34a; background: #e7f6ed; padding: 3px 8px; border-radius: 20px"><i class="ph-fill ph-check-circle" style="font-size: 11px"></i>Processed</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-top: 1px solid #f4f4f6">
+                <i class="ph-fill ph-file-pdf" style="color: #dc4b3e; font-size: 19px"></i>
+                <div style="flex: 1; min-width: 0"><div style="font-size: 13px; font-weight: 600">security-compliance.pdf</div><div style="font-size: 11px; color: #9a9aa5; margin-top: 1px">31 pages · extracting…</div></div>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #b45309; background: #fdf0dd; padding: 3px 8px; border-radius: 20px"><i class="ph ph-circle-notch" style="font-size: 11px"></i>Processing</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 03 -->
+    <div style="padding: 96px 24px 0">
+      <div style="max-width: 1024px; margin: 0 auto">
+        <div style="display: flex; align-items: baseline; gap: 18px; max-width: 640px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: #5b5bd6; letter-spacing: .06em">03</span>
+          <div>
+            <h3 style="margin: 0; font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.12">Create a material</h3>
+            <p style="margin: 14px 0 0; font-size: 17px; line-height: 1.55; color: #55555e; text-wrap: pretty">Pair a sender with a receiver, pick a template, and describe the campaign goal in a sentence. Generation draws on both companies&rsquo; documents.</p>
+          </div>
+        </div>
+        <div style="margin-top: 40px; border-radius: 18px; padding: clamp(24px, 4vw, 56px); background: linear-gradient(135deg, #f1eafe, #f8f4fe)">
+          <div style="max-width: 660px; margin: 0 auto; background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 14px; box-shadow: 0 24px 70px -24px rgba(30,30,80,.35); padding: 22px">
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <span style="font-size: 14px; font-weight: 700">New marketing material</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9a9aa5">step 3 / 4</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 36px 1fr; gap: 10px; align-items: stretch; margin-top: 14px">
+              <div style="border: 1px solid #ececef; border-radius: 12px; padding: 12px">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px"><span style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0">Sender</span><i class="ph-fill ph-check-circle" style="color: #5b5bd6; font-size: 15px"></i></div>
+                <div style="display: flex; align-items: center; gap: 9px">
+                  <img src="assets/datadog-mark.png" alt="Datadog logo" style="width: 32px; height: 32px; flex: none; border-radius: 8px">
+                  <div><div style="font-size: 13px; font-weight: 700">Datadog</div><div style="font-size: 11px; color: #9a9aa5">Cloud Monitoring · 3 docs</div></div>
+                </div>
+              </div>
+              <div style="align-self: center; width: 30px; height: 30px; border-radius: 50%; background: #eef0fe; display: flex; align-items: center; justify-content: center; justify-self: center"><i class="ph-bold ph-arrows-left-right" style="color: #5b5bd6; font-size: 14px"></i></div>
+              <div style="border: 1px solid #ececef; border-radius: 12px; padding: 12px">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px"><span style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0">Receiver</span><i class="ph-fill ph-check-circle" style="color: #5b5bd6; font-size: 15px"></i></div>
+                <div style="display: flex; align-items: center; gap: 9px">
+                  <img src="assets/airbnb-mark.png" alt="Airbnb logo" style="width: 32px; height: 32px; flex: none; border-radius: 8px">
+                  <div><div style="font-size: 13px; font-weight: 700">Airbnb</div><div style="font-size: 11px; color: #9a9aa5">Travel Marketplace · 5 docs</div></div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 12px; background: #f7f7fb; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #4a4a52; line-height: 1.5"><b style="font-weight: 700">Datadog</b> is pitching to <b style="font-weight: 700">Airbnb</b> — grounding draws from both companies&rsquo; documents.</div>
+            <div style="margin-top: 12px">
+              <div style="font-size: 11px; font-weight: 600; color: #77777f; margin-bottom: 5px">Campaign goal</div>
+              <div style="border: 1px solid #e4e4e9; background: #fbfbfc; border-radius: 10px; padding: 11px 12px; font-size: 12.5px; font-style: italic; color: #4a4a52; line-height: 1.5">&ldquo;A short article on how Datadog could keep Airbnb&rsquo;s booking flow reliable during peak travel season.&rdquo;</div>
+            </div>
+            <div style="margin-top: 14px; background: #5b5bd6; color: #ffffff; border-radius: 10px; padding: 11px; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px"><i class="ph-fill ph-magic-wand" style="font-size: 15px"></i>Generate Marketing Material</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 04 -->
+    <div style="padding: 96px 24px 0">
+      <div style="max-width: 1024px; margin: 0 auto">
+        <div style="display: flex; align-items: baseline; gap: 18px; max-width: 640px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; color: #5b5bd6; letter-spacing: .06em">04</span>
+          <div>
+            <h3 style="margin: 0; font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.12">Review and approve</h3>
+            <p style="margin: 14px 0 0; font-size: 17px; line-height: 1.55; color: #55555e; text-wrap: pretty">The finished material, side by side with its receipts — grounding sources from both companies, word-limit meters, schema checks. Approve it, send it, or regenerate.</p>
+          </div>
+        </div>
+        <div style="margin-top: 40px; border-radius: 18px; padding: clamp(24px, 4vw, 56px); background: linear-gradient(135deg, #e7f6ed, #f2faf5)">
+          <div style="max-width: 880px; margin: 0 auto; display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start">
+            <div style="background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 14px; box-shadow: 0 24px 70px -24px rgba(30,30,80,.35); overflow: hidden">
+              <div style="height: 180px; position: relative; background: radial-gradient(90% 130% at 85% 0%, rgba(177,98,255,.55), transparent 60%), radial-gradient(80% 120% at 10% 100%, rgba(255,90,95,.35), transparent 55%), linear-gradient(120deg, #251243, #632ca6)">
+                <div style="position: absolute; bottom: 12px; left: 12px; background: #ffffff; border-radius: 8px; padding: 5px 9px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.15)">
+                  <img src="assets/datadog-mark.png" alt="Datadog logo" style="width: 16px; height: 16px; border-radius: 4px">
+                  <span style="font-size: 10.5px; font-weight: 700; color: #1a1a1e">Datadog</span>
+                </div>
+              </div>
+              <div style="padding: 18px 20px">
+                <div style="font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #5b5bd6; margin-bottom: 8px">Datadog × Airbnb</div>
+                <div style="font-size: 17px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25">Reliability for Every Booking</div>
+                <p style="margin: 7px 0 12px; font-size: 12px; line-height: 1.5; color: #55555e">How unified observability could help Airbnb catch issues before guests ever notice.</p>
+                <div style="font-size: 12px; font-weight: 700; margin-bottom: 3px">The Challenge</div>
+                <p style="margin: 0 0 10px; font-size: 11.5px; line-height: 1.55; color: #4a4a52">Peak travel weekends amplify every regression across Airbnb&rsquo;s thousands of microservices — booking, payments, messaging.</p>
+                <div style="font-size: 12px; font-weight: 700; margin-bottom: 3px">The Solution</div>
+                <p style="margin: 0 0 12px; font-size: 11.5px; line-height: 1.55; color: #4a4a52">Datadog would correlate Airbnb&rsquo;s metrics, traces and logs in one view — cutting time-to-root-cause from hours to minutes.</p>
+                <div style="display: flex; align-items: center; gap: 7px; background: #f4f4fd; border: 1px solid #e6e6fb; border-radius: 9px; padding: 9px 11px"><i class="ph-fill ph-calendar-check" style="color: #5b5bd6; font-size: 14px"></i><span style="font-size: 11.5px; font-weight: 600; color: #3a3a42">Book a 20-minute observability review</span></div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <div style="background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 12px; box-shadow: 0 16px 44px -18px rgba(30,30,80,.3); padding: 14px 15px">
+                <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0; margin-bottom: 10px">Quality checks</div>
+                <div style="display: flex; flex-direction: column; gap: 7px">
+                  <div style="display: flex; align-items: center; gap: 7px"><i class="ph-fill ph-check-circle" style="color: #16a34a; font-size: 15px"></i><span style="font-size: 12.5px; color: #2f2f38">JSON schema valid</span></div>
+                  <div style="display: flex; align-items: center; gap: 7px"><i class="ph-fill ph-check-circle" style="color: #16a34a; font-size: 15px"></i><span style="font-size: 12.5px; color: #2f2f38">Word limits passed</span></div>
+                  <div style="display: flex; align-items: center; gap: 7px"><i class="ph-fill ph-check-circle" style="color: #16a34a; font-size: 15px"></i><span style="font-size: 12.5px; color: #2f2f38">Image slots present</span></div>
+                  <div style="display: flex; align-items: center; gap: 7px"><i class="ph-fill ph-check-circle" style="color: #16a34a; font-size: 15px"></i><span style="font-size: 12.5px; color: #2f2f38">Sources attached</span></div>
+                </div>
+              </div>
+              <div style="background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 12px; box-shadow: 0 16px 44px -18px rgba(30,30,80,.3); padding: 14px 15px">
+                <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0; margin-bottom: 10px">Constraint meters</div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px"><span style="font-size: 12px; color: #2f2f38">Headline</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #77777f">5 / 10</span></div>
+                <div style="height: 4px; border-radius: 4px; background: #f0f0f2; margin-bottom: 9px"><div style="width: 50%; height: 4px; border-radius: 4px; background: #16a34a"></div></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px"><span style="font-size: 12px; color: #2f2f38">Subheadline</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #77777f">13 / 22</span></div>
+                <div style="height: 4px; border-radius: 4px; background: #f0f0f2; margin-bottom: 9px"><div style="width: 59%; height: 4px; border-radius: 4px; background: #16a34a"></div></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px"><span style="font-size: 12px; color: #2f2f38">Body · Challenge</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #b45309">54 / 80</span></div>
+                <div style="height: 4px; border-radius: 4px; background: #f0f0f2; margin-bottom: 9px"><div style="width: 68%; height: 4px; border-radius: 4px; background: #e0a83b"></div></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px"><span style="font-size: 12px; color: #2f2f38">Body · Solution</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #b45309">61 / 80</span></div>
+                <div style="height: 4px; border-radius: 4px; background: #f0f0f2"><div style="width: 76%; height: 4px; border-radius: 4px; background: #e0a83b"></div></div>
+              </div>
+              <div style="background: #ffffff; border: 1px solid rgba(20,20,40,.06); border-radius: 12px; box-shadow: 0 16px 44px -18px rgba(30,30,80,.3); padding: 14px 15px">
+                <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0; margin-bottom: 10px">Sources</div>
+                <div style="display: flex; flex-direction: column; gap: 8px">
+                  <div style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; height: 18px; border-radius: 5px; background: #eef0fe; display: flex; align-items: center; justify-content: center; flex: none"><i class="ph-bold ph-arrow-up-right" style="color: #5b5bd6; font-size: 10px"></i></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4a4a52">platform-overview.pdf · p.4</span></div>
+                  <div style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; height: 18px; border-radius: 5px; background: #ffecec; display: flex; align-items: center; justify-content: center; flex: none"><i class="ph-bold ph-arrow-down-left" style="color: #e0484d; font-size: 10px"></i></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4a4a52">booking-architecture.pdf · p.3</span></div>
+                  <div style="display: flex; align-items: center; gap: 8px"><span style="width: 18px; height: 18px; border-radius: 5px; background: #ffecec; display: flex; align-items: center; justify-content: center; flex: none"><i class="ph-bold ph-arrow-down-left" style="color: #e0484d; font-size: 10px"></i></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4a4a52">peak-season-review.pdf · p.5</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sources band -->
+  <section id="sources" style="background: #f6f6f8; border-top: 1px solid #ececef; padding: 110px 24px; margin-top: 140px">
+    <div style="max-width: 1024px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 56px; align-items: center">
+      <div>
+        <div style="font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #5b5bd6">Sources</div>
+        <h2 style="margin: 14px 0 0; font-size: clamp(28px, 3.6vw, 40px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; text-wrap: balance">Every claim, receipted.</h2>
+        <p style="margin: 18px 0 0; font-size: 16.5px; line-height: 1.6; color: #55555e; max-width: 420px; text-wrap: pretty">Generation retrieves passages from both companies&rsquo; document libraries and pins every claim to its file and page. Reviewers open the PDF at the exact spot — nothing is taken on faith.</p>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 14px; box-shadow: 0 24px 70px -24px rgba(30,30,80,.25); padding: 18px; max-width: 440px; width: 100%; justify-self: center">
+        <div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0">Grounding sources</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9a9aa5">4 passages · 2 companies</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; margin-top: 14px"><span style="width: 18px; height: 18px; border-radius: 5px; background: #eef0fe; display: flex; align-items: center; justify-content: center"><i class="ph-bold ph-arrow-up-right" style="color: #5b5bd6; font-size: 10px"></i></span><span style="font-size: 11.5px; font-weight: 600; color: #4a4a52">Sender — Datadog</span></div>
+        <div style="border: 1px solid #f0f0f2; border-radius: 11px; padding: 12px; margin-top: 8px">
+          <div style="display: flex; align-items: center; gap: 8px"><i class="ph-fill ph-file-pdf" style="color: #dc4b3e; font-size: 16px"></i><span style="font-size: 12.5px; font-weight: 600">platform-overview.pdf</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #77777f; background: #f4f4f6; border-radius: 5px; padding: 2px 6px">p.4</span><i class="ph ph-arrow-square-out" style="color: #9a9aa5; font-size: 13px; margin-left: auto"></i></div>
+          <p style="margin: 7px 0 0; font-size: 11.5px; font-style: italic; line-height: 1.55; color: #55555e">&ldquo;Datadog unifies metrics, traces and logs in one platform — teams cut mean time to resolution from hours to minutes.&rdquo;</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 7px; margin-top: 14px"><span style="width: 18px; height: 18px; border-radius: 5px; background: #ffecec; display: flex; align-items: center; justify-content: center"><i class="ph-bold ph-arrow-down-left" style="color: #e0484d; font-size: 10px"></i></span><span style="font-size: 11.5px; font-weight: 600; color: #4a4a52">Receiver — Airbnb</span></div>
+        <div style="border: 1px solid #f0f0f2; border-radius: 11px; padding: 12px; margin-top: 8px">
+          <div style="display: flex; align-items: center; gap: 8px"><i class="ph-fill ph-file-pdf" style="color: #dc4b3e; font-size: 16px"></i><span style="font-size: 12.5px; font-weight: 600">booking-architecture.pdf</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #77777f; background: #f4f4f6; border-radius: 5px; padding: 2px 6px">p.3</span><i class="ph ph-arrow-square-out" style="color: #9a9aa5; font-size: 13px; margin-left: auto"></i></div>
+          <p style="margin: 7px 0 0; font-size: 11.5px; font-style: italic; line-height: 1.55; color: #55555e">&ldquo;Airbnb&rsquo;s platform spans thousands of services, serving millions of guests during peak weekends.&rdquo;</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" style="padding: 120px 24px 120px">
+    <div style="max-width: 1024px; margin: 0 auto">
+      <h2 style="margin: 0; max-width: 560px; font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; text-wrap: balance">Generated doesn&rsquo;t mean made up.</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-top: 56px">
+        <div style="background: #f6f6f8; border-radius: 18px; padding: 28px 26px">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #5b5bd6">Sender × Receiver</div>
+          <h3 style="margin: 14px 0 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em">Two-sided by design.</h3>
+          <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: #55555e; text-wrap: pretty">Materials are written from both companies&rsquo; context — your strengths, aimed at their reality.</p>
+        </div>
+        <div style="background: #f6f6f8; border-radius: 18px; padding: 28px 26px">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #5b5bd6">Grounded</div>
+          <h3 style="margin: 14px 0 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em">Every sentence has a source.</h3>
+          <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: #55555e; text-wrap: pretty">Copy cites the exact document and page it came from. Open the PDF at the cited page in one click.</p>
+        </div>
+        <div style="background: #f6f6f8; border-radius: 18px; padding: 28px 26px">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #5b5bd6">Validated</div>
+          <h3 style="margin: 14px 0 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em">Constraints, enforced.</h3>
+          <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: #55555e; text-wrap: pretty">Word limits, image slots, JSON schema — every output is checked against the template before review.</p>
+        </div>
+        <div style="background: #f6f6f8; border-radius: 18px; padding: 28px 26px">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #5b5bd6">Structured</div>
+          <h3 style="margin: 14px 0 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em">Layout JSON, not a blob.</h3>
+          <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: #55555e; text-wrap: pretty">Output maps into a layout contract — ready to render in any channel, not just copy-paste text.</p>
+        </div>
+        <div style="grid-column: 1 / -1; background: #1a1a1e; border-radius: 18px; padding: clamp(28px, 4vw, 44px); display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; align-items: center">
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #b9b9f2">Delivered</div>
+            <h3 style="margin: 14px 0 0; font-size: clamp(22px, 2.8vw, 28px); font-weight: 800; letter-spacing: -0.03em; color: #ffffff; line-height: 1.15; text-wrap: balance">Connect your domain. We send it.</h3>
+            <p style="margin: 12px 0 0; max-width: 400px; font-size: 14.5px; line-height: 1.6; color: #a8a8b0; text-wrap: pretty">Verify your sender domain once — approved materials go out as email from your own address, straight from the review screen.</p>
+          </div>
+          <div style="background: #ffffff; border-radius: 12px; padding: 16px; max-width: 400px; justify-self: center; width: 100%; box-shadow: 0 24px 70px -24px rgba(0,0,0,.5)">
+            <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0">From</div>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; flex-wrap: wrap">
+              <span style="font-size: 13px; font-weight: 700; color: #1a1a1e">julie@datadoghq.com</span>
+              <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #16a34a; background: #e7f6ed; padding: 3px 8px; border-radius: 20px"><i class="ph-fill ph-check-circle" style="font-size: 11px"></i>datadoghq.com connected</span>
+            </div>
+            <div style="font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a8a8b0">To</div>
+            <div style="font-size: 13px; color: #2f2f38; margin: 4px 0 14px">partnerships@airbnb.com</div>
+            <div style="border-top: 1px solid #f0f0f2; padding-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9a9aa5">newsletter_article_v1</span>
+              <span style="background: #5b5bd6; color: #ffffff; border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px"><i class="ph-fill ph-paper-plane-tilt" style="font-size: 12px"></i>Send email</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Templates band -->
+  <sc-if value="{{ showTemplatesBand }}" hint-placeholder-val="{{ true }}">
+    <section style="background: #f6f6f8; border-top: 1px solid #ececef; border-bottom: 1px solid #ececef; padding: 110px 24px">
+      <div style="max-width: 1024px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 56px; align-items: center">
+        <div>
+          <div style="font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #5b5bd6">Templates</div>
+          <h2 style="margin: 14px 0 0; font-size: clamp(28px, 3.6vw, 40px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; text-wrap: balance">One JSON contract. Every layout.</h2>
+          <p style="margin: 18px 0 0; font-size: 16.5px; line-height: 1.6; color: #55555e; max-width: 420px; text-wrap: pretty">Each template defines fields, word limits, and image slots. Output is validated against them before you ever see it — newsletter today, brochures and email next.</p>
+        </div>
+        <div style="background: #ffffff; border: 1px solid #ececef; border-radius: 14px; box-shadow: 0 24px 70px -24px rgba(30,30,80,.25); padding: 18px; max-width: 420px; width: 100%; justify-self: center">
+          <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #f0f0f2">
+            <div style="width: 32px; height: 32px; border-radius: 9px; background: #eef0fe; display: flex; align-items: center; justify-content: center; flex: none"><i class="ph ph-newspaper" style="color: #5b5bd6; font-size: 16px"></i></div>
+            <div style="flex: 1; min-width: 0"><div style="font-size: 14px; font-weight: 700">Newsletter Article</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #9a9aa5">newsletter_article_v1</div></div>
+            <span style="font-size: 10.5px; font-weight: 600; color: #16a34a; background: #e7f6ed; padding: 3px 9px; border-radius: 20px">Active</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0 4px"><span style="font-size: 12.5px; color: #2f2f38">Headline</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #77777f">≤ 10 words</span></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0"><span style="font-size: 12.5px; color: #2f2f38">Subheadline</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #77777f">≤ 22 words</span></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0"><span style="font-size: 12.5px; color: #2f2f38">Body sections</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #77777f">2 × ≤ 80 words</span></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0"><span style="font-size: 12.5px; color: #2f2f38">CTA</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #77777f">≤ 15 words</span></div>
+          <div style="display: flex; gap: 8px; margin-top: 10px">
+            <span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #ececef; border-radius: 8px; padding: 5px 9px; font-size: 11px; color: #55555e"><i class="ph ph-image" style="font-size: 12px"></i>Hero · 1200×630</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #ececef; border-radius: 8px; padding: 5px 9px; font-size: 11px; color: #55555e"><i class="ph ph-image" style="font-size: 12px"></i>Logo · SVG/PNG</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 18px; height: 18px; border-radius: 5px; background: #5b5bd6"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #77777f">#5b5bd6</span></span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 18px; height: 18px; border-radius: 5px; background: #0f172a"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #77777f">#0f172a</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- CTA -->
+  <section id="cta" style="background: #1a1a1e; padding: 130px 24px; text-align: center">
+    <h2 style="margin: 0 auto; max-width: 620px; color: #ffffff; font-size: clamp(36px, 5vw, 56px); font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; text-wrap: balance">Start generating.</h2>
+    <p style="margin: 20px auto 0; max-width: 460px; color: #a8a8b0; font-size: 17px; line-height: 1.55">Sign in, add both companies, drop in the PDFs. The first article takes minutes.</p>
+    <div style="display: flex; justify-content: center; gap: 14px; margin-top: 34px">
+      <a href="#" style="background: #5b5bd6; color: #ffffff; padding: 14px 30px; border-radius: 100px; font-size: 15.5px; font-weight: 600" style-hover="{{ hovPrimary }}">Get started</a>
+      <a href="#" style="border: 1px solid rgba(255,255,255,.28); color: #ffffff; padding: 14px 30px; border-radius: 100px; font-size: 15.5px; font-weight: 600" style-hover="{{ hovGhostDark }}">Request a demo</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="background: #1a1a1e; border-top: 1px solid rgba(255,255,255,.08); padding: 26px 24px">
+    <div style="max-width: 1024px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 12.5px; color: #77777f">
+      <span>© 2026 Collateral AI · MVP</span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">grounded · validated · delivered</span>
+    </div>
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showAnnouncement&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Header&quot;},&quot;showTemplatesBand&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Sections&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showAnnouncement: this.props.showAnnouncement ?? false,
+      hovNavLink: { color: '#1a1a1e' },
+      hovDark: { background: '#333333', color: '#ffffff' },
+      hovPrimary: { background: '#4f4fce', color: '#ffffff' },
+      hovGhost: { background: '#f0f0f4', color: '#1a1a1e' },
+      hovGhostDark: { background: 'rgba(255,255,255,.08)', color: '#ffffff' },
+      showTemplatesBand: this.props.showTemplatesBand ?? true
+    };
+  }
+}
+
+</script>
+</body>
+</html>
