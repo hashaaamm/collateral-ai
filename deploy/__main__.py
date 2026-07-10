@@ -12,7 +12,6 @@ import os
 
 import pulumi
 import pulumi_gcp as gcp
-import pulumi_kubernetes as k8s
 import pulumi_random as random
 from dotenv import load_dotenv
 
@@ -184,12 +183,10 @@ repo = gcp.artifactregistry.Repository(
 
 # --- GKE Autopilot cluster (async worker jobs) ----------------------------
 # Autopilot: node pools, VPC-native networking, and Workload Identity are managed/on by
-# default. The backend (Cloud Run) reaches the control plane privately through the VPC
-# connector (master_global_access). A restricted public endpoint is kept ONLY so Pulumi/CI
-# can apply the namespace + KSA below — set GKE_MASTER_AUTHORIZED_CIDR to your CI/operator
-# egress IP. The workers' runtime path is fully private.
-GKE_MASTER_AUTHORIZED_CIDR = os.environ.get("GKE_MASTER_AUTHORIZED_CIDR", "").strip()
-
+# default. The control plane is FULLY PRIVATE (no public endpoint): the backend (Cloud Run)
+# reaches it through the VPC connector, and it also creates the workers namespace + KSA
+# itself (see backend worker_jobs.ensure_worker_namespace), so Pulumi never needs cluster
+# API access — no public endpoint, no authorized-network allowlist, no operator IP to pin.
 cluster = gcp.container.Cluster(
     f"{NAME}-autopilot",
     name=f"{NAME}-autopilot",
@@ -203,17 +200,10 @@ cluster = gcp.container.Cluster(
     ),
     private_cluster_config=gcp.container.ClusterPrivateClusterConfigArgs(
         enable_private_nodes=True,
-        enable_private_endpoint=False,
+        enable_private_endpoint=True,
         master_ipv4_cidr_block=os.environ.get("GKE_MASTER_CIDR", "172.16.0.0/28"),
         master_global_access_config=gcp.container.ClusterPrivateClusterConfigMasterGlobalAccessConfigArgs(
             enabled=True,
-        ),
-    ),
-    master_authorized_networks_config=gcp.container.ClusterMasterAuthorizedNetworksConfigArgs(
-        cidr_blocks=(
-            [gcp.container.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs(
-                cidr_block=GKE_MASTER_AUTHORIZED_CIDR, display_name="operator-ci")]
-            if GKE_MASTER_AUTHORIZED_CIDR else []
         ),
     ),
     release_channel=gcp.container.ClusterReleaseChannelArgs(channel="REGULAR"),
@@ -233,11 +223,14 @@ for role in ["roles/aiplatform.user", "roles/storage.objectAdmin"]:
     )
 
 # Workload Identity: bind the in-cluster KSA workers/worker to the worker GSA.
+# depends_on the cluster: the PROJECT.svc.id.goog identity pool only exists once a
+# Workload-Identity-enabled cluster is created, so this binding must come after it.
 gcp.serviceaccount.IAMMember(
     f"{SLUG}-worker-wi",
     service_account_id=worker_sa.name,
     role="roles/iam.workloadIdentityUser",
     member=pulumi.Output.concat("serviceAccount:", PROJECT, ".svc.id.goog[workers/worker]"),
+    opts=pulumi.ResourceOptions(depends_on=[cluster]),
 )
 
 # Autopilot's node service account (the default compute SA) must pull the backend image.
@@ -255,45 +248,11 @@ database_url_private = pulumi.Output.all(
 ).apply(lambda a: f"postgres://{DB_USER}:{a[0]}@{a[1]}:5432/{DB_NAME}")
 secrets["database-url-private"] = make_secret("database-url-private", database_url_private)
 
-# Namespace + Workload-Identity KSA, applied via the cluster's public endpoint (restricted
-# to GKE_MASTER_AUTHORIZED_CIDR). Pulumi authenticates with a short-lived client token.
-gke_client_config = gcp.organizations.get_client_config()
-gke_kubeconfig = pulumi.Output.all(
-    cluster.endpoint, cluster.master_auth.cluster_ca_certificate
-).apply(lambda a: f"""apiVersion: v1
-kind: Config
-clusters:
-- name: gke
-  cluster:
-    server: https://{a[0]}
-    certificate-authority-data: {a[1]}
-contexts:
-- name: gke
-  context:
-    cluster: gke
-    user: gke
-current-context: gke
-users:
-- name: gke
-  user:
-    token: {gke_client_config.access_token}
-""")
-k8s_provider = k8s.Provider(f"{NAME}-k8s", kubeconfig=gke_kubeconfig)
-
-worker_ns = k8s.core.v1.Namespace(
-    f"{NAME}-workers-ns",
-    metadata=k8s.meta.v1.ObjectMetaArgs(name="workers"),
-    opts=pulumi.ResourceOptions(provider=k8s_provider, depends_on=[cluster]),
-)
-worker_ksa = k8s.core.v1.ServiceAccount(
-    f"{NAME}-worker-ksa",
-    metadata=k8s.meta.v1.ObjectMetaArgs(
-        name="worker",
-        namespace="workers",
-        annotations={"iam.gke.io/gcp-service-account": worker_sa.email},
-    ),
-    opts=pulumi.ResourceOptions(provider=k8s_provider, depends_on=[worker_ns]),
-)
+# NOTE: the workers namespace + Workload-Identity KSA are NOT created here. The backend
+# creates them itself (worker_jobs.ensure_worker_namespace) from inside the VPC, so the
+# control plane can stay fully private and Pulumi needs no cluster API access. The GSA-side
+# Workload Identity binding above (worker-wi) is a plain IAM policy and needs no cluster
+# access — the workers/worker principal is symbolic and need not exist when it's bound.
 
 # --- Static / media bucket ------------------------------------------------
 bucket = gcp.storage.Bucket(

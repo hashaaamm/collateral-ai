@@ -66,32 +66,33 @@ Cloud Run backend  ────────────────────�
   - `enable_autopilot=True` (Autopilot → VPC-native + Workload Identity are on by default).
   - `ip_allocation_policy` referencing the VPC-native pod/service ranges.
   - `private_cluster_config`: `enable_private_nodes=True`,
-    `enable_private_endpoint=False` (a **restricted** public endpoint is kept **only** for
-    Pulumi/CI to apply the namespace + KSA), `master_global_access_config` enabled so the
-    in-VPC backend reaches the control plane privately, `master_ipv4_cidr_block` = a spare /28.
-  - `master_authorized_networks_config`: the operator/CI egress IP only (public endpoint is
-    for management, not the runtime path). Configurable via `deploy/.env`.
+    **`enable_private_endpoint=True`** (control plane is **fully private — no public
+    endpoint**), `master_global_access_config` enabled so the in-VPC backend reaches the
+    control plane privately, `master_ipv4_cidr_block` = a spare /28.
+  - **No `master_authorized_networks_config`** and **no Pulumi Kubernetes provider.** Pulumi
+    never touches the cluster API, so there is nothing to allowlist and no operator/CI egress
+    IP to pin. This removes the earlier "restricted public endpoint" and its flapping-IP
+    problem entirely.
   - `release_channel` = REGULAR.
-  - **Rationale for the endpoint split:** the backend's *runtime* path is fully private (VPC
-    connector → private control-plane endpoint). The restricted public endpoint exists purely
-    so IaC/CI (which run outside the VPC) can create the two cluster objects below. A
-    fully-private-only endpoint would require a bastion/proxy for IaC — deliberately avoided.
+  - **Rationale:** the backend's runtime path is fully private (VPC connector → private
+    control-plane endpoint), and the backend *also* creates the namespace + KSA itself (§2),
+    so IaC needs zero cluster access. A public endpoint / bastion would only have existed to
+    let laptop-run IaC reach the control plane — now unnecessary.
 - **`gke-worker-sa`** (GCP service account) — least privilege for pods:
   - `roles/aiplatform.user` (Vertex embeddings + LLM)
   - `roles/storage.objectAdmin` (GCS media)
   - No `cloudsql.client` (DB is reached over private IP + password, not the proxy).
 - **Node image pull:** grant `roles/artifactregistry.reader` to the Autopilot node service
   account so pods can pull the backend image from Artifact Registry.
-- **`cloud-run-sa` gains `roles/container.developer`** — authorizes K8s Job creation via IAM,
-  so **no in-cluster RBAC** needs bootstrapping.
-- **Workload Identity:** via Pulumi's **Kubernetes provider** (kubeconfig built from the
-  cluster outputs), create:
-  - Namespace `workers`.
-  - K8s ServiceAccount `worker` annotated
-    `iam.gke.io/gcp-service-account: gke-worker-sa@<project>.iam.gserviceaccount.com`.
-  - IAM binding: `gke-worker-sa` ← `roles/iam.workloadIdentityUser` for
-    `serviceAccount:<project>.svc.id.goog[workers/worker]`.
-  - **No K8s Secret objects** are created in the cluster.
+- **`cloud-run-sa` gains `roles/container.developer`** — authorizes both K8s Job creation and
+  the namespace/KSA bootstrap via IAM, so **no in-cluster RBAC** needs bootstrapping.
+- **Workload Identity (GCP side only):** a plain IAM binding —
+  `gke-worker-sa` ← `roles/iam.workloadIdentityUser` for
+  `serviceAccount:<project>.svc.id.goog[workers/worker]`. This needs **no cluster access**;
+  the `workers/worker` principal is symbolic and need not exist when the binding is created.
+  The in-cluster objects (namespace `workers`, KSA `worker` annotated
+  `iam.gke.io/gcp-service-account: gke-worker-sa@<project>.iam.gserviceaccount.com`) are
+  **created by the backend at runtime**, not by Pulumi. **No K8s Secret objects** are created.
 - **`database-url-private` secret** (Secret Manager): the private-IP DB URL
   `postgres://<user>:<pw>@<sql_instance.private_ip_address>:5432/<db>`. (The existing
   `database-url` uses the Cloud SQL unix socket `host=/cloudsql/...`, unusable from a pod.)
@@ -108,6 +109,11 @@ client**.
 - **Auth (no kubeconfig on disk):** obtain a GCP OAuth token via `google.auth` default
   credentials; build a `kubernetes.client.Configuration` with `host=GKE_ENDPOINT`,
   the CA from `GKE_CA_CERT` (written to a temp file), and the token as the bearer.
+- **Namespace/KSA bootstrap** (`worker_jobs.ensure_worker_namespace`, `@cache` = once per
+  process): idempotently `create_namespace("workers")` and `create_namespaced_service_account`
+  for `worker` annotated with `iam.gke.io/gcp-service-account = WORKER_GCP_SERVICE_ACCOUNT`;
+  `409 Conflict` (already exists) is swallowed. Called before the first Job submission. This
+  is why Pulumi needs no cluster access and the control plane can be fully private.
 - **Job manifest** (`BatchV1Api().create_namespaced_job` into `WORKER_NAMESPACE`):
   - `image` = `WORKER_IMAGE` (SHA-pinned; forwarded from the backend's own env).
   - `command=["python"]`, `args=["manage.py","process_document","--document-id","<pk>"]`
@@ -138,7 +144,8 @@ New env-driven settings (all empty by default → inline local path):
 - `DOCUMENT_PROCESSOR_JOB` / `MATERIAL_GENERATOR_JOB` — retained; non-empty ⇒ K8s mode,
   and used as the Job name prefix.
 - `GKE_ENDPOINT`, `GKE_CA_CERT` (base64 PEM), `WORKER_IMAGE`, `WORKER_NAMESPACE` (default
-  `workers`), `WORKER_SERVICE_ACCOUNT` (default `worker`), `WORKER_DATABASE_URL`.
+  `workers`), `WORKER_SERVICE_ACCOUNT` (default `worker`), `WORKER_DATABASE_URL`,
+  `WORKER_GCP_SERVICE_ACCOUNT` (the `gke-worker-sa` email the KSA impersonates).
 - The `*_REGION` settings are no longer needed for the K8s path but may remain harmlessly.
 
 Add `kubernetes` and `google-auth` to backend dependencies.
@@ -159,7 +166,8 @@ Add `kubernetes` and `google-auth` to backend dependencies.
   - Add `--vpc-egress all-traffic` (routes control-plane API calls through the VPC connector →
     private control-plane endpoint).
   - Add env: `WORKER_IMAGE=$AR_REPO/backend:${{ github.sha }}`, `GKE_ENDPOINT`, `GKE_CA_CERT`,
-    `WORKER_NAMESPACE`, `WORKER_SERVICE_ACCOUNT`, and keep `DOCUMENT_PROCESSOR_JOB` /
+    `WORKER_NAMESPACE`, `WORKER_SERVICE_ACCOUNT`, `WORKER_GCP_SERVICE_ACCOUNT`
+    (= `GKE_WORKER_SA_EMAIL` secret), and keep `DOCUMENT_PROCESSOR_JOB` /
     `MATERIAL_GENERATOR_JOB` (now K8s Job name prefixes).
   - Add `--set-secrets WORKER_DATABASE_URL=database-url-private:latest` alongside the existing
     secrets.
@@ -176,10 +184,14 @@ if the threat model tightens.
 
 ## Rollout / ordering
 
-1. `pulumi up` — creates cluster, worker SA, WI binding, namespace + KSA, `database-url-private`,
+1. `pulumi up` — creates cluster (fully-private control plane), worker SA, WI binding,
+   `database-url-private`,
    `container.developer` on `cloud-run-sa`.
 2. Wire the new Pulumi outputs into GitHub secrets.
 3. Merge backend + `cd.yml` changes → CD deploys the backend with the new env/egress and stops
    deploying the two Cloud Run Jobs.
-4. Verify an upload triggers a K8s Job (`kubectl get jobs -n workers`) and completes.
+4. Verify an upload triggers a K8s Job and completes — via backend logs + **GKE Workloads in
+   Cloud Console / Cloud Logging** (the control plane is private, so laptop `kubectl` can't
+   reach it; use a VPC-connected bastion/Cloud Shell with private access if raw `kubectl` is
+   needed).
 5. Delete the now-orphaned `collateral-ai-backend-docproc` / `-matgen` Cloud Run Jobs.

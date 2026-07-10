@@ -364,6 +364,9 @@ MATERIAL_MAX_REPAIR_ATTEMPTS = env.int("MATERIAL_MAX_REPAIR_ATTEMPTS", default=2
 WORKER_IMAGE = env("WORKER_IMAGE", default="")
 WORKER_NAMESPACE = env("WORKER_NAMESPACE", default="workers")
 WORKER_SERVICE_ACCOUNT = env("WORKER_SERVICE_ACCOUNT", default="worker")
+# GSA the worker KSA impersonates via Workload Identity. The backend annotates the
+# KSA with this when it ensures the namespace/KSA exist (see worker_jobs).
+WORKER_GCP_SERVICE_ACCOUNT = env("WORKER_GCP_SERVICE_ACCOUNT", default="")
 # Private-IP DB URL for pods (the base DATABASE_URL uses the Cloud SQL unix socket).
 WORKER_DATABASE_URL = env("WORKER_DATABASE_URL", default="")
 GKE_ENDPOINT = env("GKE_ENDPOINT", default="")  # https://<control-plane-host>

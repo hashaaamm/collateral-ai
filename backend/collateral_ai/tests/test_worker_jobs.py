@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from unittest import mock
 
+from kubernetes import client
+from kubernetes.client.rest import ApiException
+
 from collateral_ai import worker_jobs
 
 
@@ -18,6 +21,7 @@ def test_create_worker_job_builds_manifest(settings, monkeypatch):
     batch = mock.MagicMock()
     batch.create_namespaced_job.return_value.metadata.name = "docproc-xyz"
     monkeypatch.setattr(worker_jobs, "_batch_api", lambda: batch)
+    monkeypatch.setattr(worker_jobs, "ensure_worker_namespace", lambda: None)
 
     name = worker_jobs.create_worker_job(
         name_prefix="collateral-ai-backend-docproc",
@@ -48,3 +52,27 @@ def test_create_worker_job_builds_manifest(settings, monkeypatch):
     assert env["DATABASE_URL"] == "postgres://u:p@10.1.2.3:5432/db"
     assert env["GOOGLE_CLOUD_PROJECT"] == "proj"
     assert env["DJANGO_SETTINGS_MODULE"] == "config.settings.production"
+
+
+def test_ensure_worker_namespace_is_idempotent(settings, monkeypatch):
+    settings.WORKER_NAMESPACE = "workers"
+    settings.WORKER_SERVICE_ACCOUNT = "worker"
+    settings.WORKER_GCP_SERVICE_ACCOUNT = "gke-worker-sa@proj.iam.gserviceaccount.com"
+    worker_jobs.ensure_worker_namespace.cache_clear()
+
+    core = mock.MagicMock()
+    # Namespace + KSA already exist -> API raises 409, which must be swallowed.
+    core.create_namespace.side_effect = ApiException(status=409)
+    core.create_namespaced_service_account.side_effect = ApiException(status=409)
+    monkeypatch.setattr(client, "CoreV1Api", mock.Mock(return_value=core))
+    monkeypatch.setattr(worker_jobs, "_api_client", mock.Mock())
+
+    worker_jobs.ensure_worker_namespace()
+    worker_jobs.ensure_worker_namespace()  # cached: no second control-plane sweep
+
+    core.create_namespace.assert_called_once()
+    ksa = core.create_namespaced_service_account.call_args.kwargs["body"]
+    assert ksa.metadata.name == "worker"
+    assert ksa.metadata.annotations == {
+        "iam.gke.io/gcp-service-account": "gke-worker-sa@proj.iam.gserviceaccount.com",
+    }
