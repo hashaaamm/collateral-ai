@@ -68,53 +68,25 @@ jobs:
         # Email(Resend) adds RESEND_API_KEY=resend-api-key:latest; Payments(Stripe) adds
         # STRIPE_SECRET_KEY=stripe-secret-key:latest,DJSTRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest.
         # See features/<feature>/README. Referencing a secret that wasn't provisioned FAILS the deploy.
+        # The two workers (docproc/matgen) are NO LONGER deployed as Cloud Run Jobs — the backend
+        # creates them as Kubernetes Jobs on GKE Autopilot at request time (see collateral_ai/
+        # worker_jobs.py). This step passes the K8s wiring: WORKER_IMAGE (same SHA as the backend),
+        # the control-plane endpoint/CA, the private-IP DB URL, and --vpc-egress all-traffic so the
+        # backend reaches the private control plane through the connector.
         run: |
           gcloud run deploy collateral-ai-backend \
             --image $AR_REPO/backend:${{ github.sha }} \
             --region $REGION \
             --service-account $RUN_SA_EMAIL \
             --vpc-connector collateral-ai-connector \
+            --vpc-egress all-traffic \
             --add-cloudsql-instances ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
-            --set-secrets DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest \
-            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@CORS_ALLOWED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@CSRF_TRUSTED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}@DOCUMENT_PROCESSOR_REGION=$REGION@DOCUMENT_PROCESSOR_JOB=$DOCPROC_JOB@MATERIAL_GENERATOR_REGION=$REGION@MATERIAL_GENERATOR_JOB=$MATGEN_JOB" \
+            --set-secrets DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest,WORKER_DATABASE_URL=database-url-private:latest \
+            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@CORS_ALLOWED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@CSRF_TRUSTED_ORIGINS=${{ secrets.FRONTEND_SITE_URL }}@GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}@VERTEX_LOCATION=$REGION@DOCUMENT_PROCESSOR_JOB=$DOCPROC_JOB@MATERIAL_GENERATOR_JOB=$MATGEN_JOB@WORKER_IMAGE=$AR_REPO/backend:${{ github.sha }}@WORKER_NAMESPACE=workers@WORKER_SERVICE_ACCOUNT=worker@GKE_ENDPOINT=https://${{ secrets.GKE_CLUSTER_ENDPOINT }}@GKE_CA_CERT=${{ secrets.GKE_CLUSTER_CA_CERT }}" \
             --cpu 1 --memory 512Mi --concurrency 80 --min-instances 0 --max-instances 4 \
             --timeout 300 --allow-unauthenticated
             # Cost note: min-instances 0 scales to zero (cold starts). Bump cpu/memory/min-instances
             # only after confirming cost. See deploy/env-template SIZING section.
-      - name: Deploy document-processor Cloud Run Job
-        # Persistent Job the web service triggers (via worker_trigger) to process an uploaded PDF
-        # off the request thread. The wrapper passes a container override adding --document-id N,
-        # so the base args here are just `manage.py process_document`; --command is `python`.
-        run: |
-          gcloud run jobs deploy $DOCPROC_JOB \
-            --image $AR_REPO/backend:${{ github.sha }} \
-            --region $REGION \
-            --service-account $RUN_SA_EMAIL \
-            --vpc-connector collateral-ai-connector \
-            --set-cloudsql-instances ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
-            --set-secrets DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest \
-            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}@VERTEX_LOCATION=$REGION" \
-            --command python \
-            --args manage.py,process_document \
-            --cpu 2 --memory 2Gi --max-retries 1 --task-timeout 900
-      - name: Deploy material-generator Cloud Run Job
-        # Worker 2: generates marketing material JSON. --max-retries 0 is deliberate
-        # (unlike docproc): the command exits non-zero on deterministic failures like
-        # validation exhaustion, and an automatic re-run would burn 3 more LLM calls
-        # and flip a row the UI already shows as failed back to processing. Recovery
-        # is the user-facing Regenerate button. (spec §6.6)
-        run: |
-          gcloud run jobs deploy $MATGEN_JOB \
-            --image $AR_REPO/backend:${{ github.sha }} \
-            --region $REGION \
-            --service-account $RUN_SA_EMAIL \
-            --vpc-connector collateral-ai-connector \
-            --set-cloudsql-instances ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
-            --set-secrets DATABASE_URL=database-url:latest,DJANGO_SECRET_KEY=django-secret-key:latest \
-            --set-env-vars "^@^DJANGO_SETTINGS_MODULE=config.settings.production@DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}@DJANGO_ADMIN_URL=${{ secrets.DJANGO_ADMIN_URL }}@DJANGO_GCP_STORAGE_BUCKET_NAME=${{ secrets.DJANGO_GCP_STORAGE_BUCKET_NAME }}@GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}@VERTEX_LOCATION=$REGION" \
-            --command python \
-            --args manage.py,generate_material \
-            --cpu 1 --memory 1Gi --max-retries 0 --task-timeout 600
 
   # React SPA hosted on GCS + Cloud CDN (FRONTEND_HOSTING=gcs). Static Vite build → rsync to the
   # bucket → invalidate the CDN. (No Cloud Run frontend service for this stack.)
