@@ -356,3 +356,15 @@ MATERIAL_GENERATION_MAX_OUTPUT_TOKENS = env.int(
 )
 MATERIAL_RETRIEVAL_TOP_K = env.int("MATERIAL_RETRIEVAL_TOP_K", default=8)
 MATERIAL_MAX_REPAIR_ATTEMPTS = env.int("MATERIAL_MAX_REPAIR_ATTEMPTS", default=2)
+
+# GKE Autopilot worker jobs (prod async workers)
+# ------------------------------------------------------------------------------
+# When DOCUMENT_PROCESSOR_JOB / MATERIAL_GENERATOR_JOB are set (prod), the workers run as
+# Kubernetes Jobs on the Autopilot cluster instead of inline. These configure that path.
+WORKER_IMAGE = env("WORKER_IMAGE", default="")
+WORKER_NAMESPACE = env("WORKER_NAMESPACE", default="workers")
+WORKER_SERVICE_ACCOUNT = env("WORKER_SERVICE_ACCOUNT", default="worker")
+# Private-IP DB URL for pods (the base DATABASE_URL uses the Cloud SQL unix socket).
+WORKER_DATABASE_URL = env("WORKER_DATABASE_URL", default="")
+GKE_ENDPOINT = env("GKE_ENDPOINT", default="")  # https://<control-plane-host>
+GKE_CA_CERT = env("GKE_CA_CERT", default="")  # base64-encoded PEM
