@@ -6,7 +6,8 @@ from collateral_ai import worker_jobs
 
 
 def test_create_worker_job_builds_manifest(settings, monkeypatch):
-    settings.WORKER_IMAGE = "us-central1-docker.pkg.dev/proj/collateral-ai-repo/backend:abc123"
+    image = "us-central1-docker.pkg.dev/p/collateral-ai-repo/backend:abc123"
+    settings.WORKER_IMAGE = image
     settings.WORKER_NAMESPACE = "workers"
     settings.WORKER_SERVICE_ACCOUNT = "worker"
     settings.WORKER_DATABASE_URL = "postgres://u:p@10.1.2.3:5432/db"

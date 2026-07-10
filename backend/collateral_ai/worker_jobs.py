@@ -1,8 +1,9 @@
 """Create Kubernetes Jobs on GKE Autopilot for the async workers.
 
-Auth uses Application Default Credentials (the Cloud Run runtime SA) as a bearer token
-against the injected control-plane endpoint + CA cert — no kubeconfig on disk. Secrets are
-passed as literal env forwarded from the backend's own environment (see spec §"Security note").
+Auth uses Application Default Credentials (the Cloud Run runtime SA) as a bearer
+token against the injected control-plane endpoint + CA cert — no kubeconfig on
+disk. Secrets are passed as literal env forwarded from the backend's own
+environment (see the spec's security note).
 """
 
 from __future__ import annotations
@@ -13,8 +14,8 @@ import tempfile
 
 from django.conf import settings
 
-# Env var names the backend forwards verbatim into the worker pod. DATABASE_URL is handled
-# separately (the pod needs the private-IP form, not the backend's unix-socket form).
+# Env var names the backend forwards verbatim into the worker pod. DATABASE_URL is
+# handled separately (the pod needs the private-IP form, not the unix-socket form).
 _FORWARDED_ENV = (
     "DJANGO_SETTINGS_MODULE",
     "DJANGO_ALLOWED_HOSTS",
@@ -59,7 +60,7 @@ def _worker_env():
     return env
 
 
-def create_worker_job(
+def create_worker_job(  # noqa: PLR0913
     name_prefix: str,
     args: list[str],
     *,
@@ -68,7 +69,7 @@ def create_worker_job(
     cpu: str,
     memory: str,
 ) -> str:
-    """Submit a one-off K8s Job running the backend image; return the created Job name."""
+    """Submit a one-off K8s Job on the backend image; return the created Job name."""
     from kubernetes import client  # noqa: PLC0415
 
     resources = client.V1ResourceRequirements(
@@ -97,5 +98,8 @@ def create_worker_job(
             template=client.V1PodTemplateSpec(spec=pod_spec),
         ),
     )
-    created = _batch_api().create_namespaced_job(namespace=settings.WORKER_NAMESPACE, body=job)
+    created = _batch_api().create_namespaced_job(
+        namespace=settings.WORKER_NAMESPACE,
+        body=job,
+    )
     return created.metadata.name or ""
