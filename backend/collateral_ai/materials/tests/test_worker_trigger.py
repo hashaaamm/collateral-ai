@@ -21,17 +21,20 @@ def test_inline_mode_runs_command(settings):
     assert result == ""
 
 
-def test_job_mode_runs_cloud_run_job(settings):
-    settings.MATERIAL_GENERATOR_JOB = "matgen-job"
-    settings.MATERIAL_GENERATOR_REGION = "us-central1"
-    settings.GOOGLE_CLOUD_PROJECT = "proj-123"
+def test_job_mode_creates_k8s_job(settings):
+    settings.MATERIAL_GENERATOR_JOB = "collateral-ai-backend-matgen"
     material = MarketingMaterialFactory()
-    with mock.patch("google.cloud.run_v2.JobsClient") as jobs_client:
-        operation = jobs_client.return_value.run_job.return_value
-        operation.operation.name = "operations/abc"
+    with mock.patch(
+        "collateral_ai.materials.worker_trigger.create_worker_job",
+        return_value="matgen-abc",
+    ) as create_worker_job:
         result = trigger_generation(material)
-    request = jobs_client.return_value.run_job.call_args.kwargs["request"]
-    assert request.name == "projects/proj-123/locations/us-central1/jobs/matgen-job"
-    args = list(request.overrides.container_overrides[0].args)
-    assert args == ["manage.py", "generate_material", "--material-id", str(material.pk)]
-    assert result == "operations/abc"
+    create_worker_job.assert_called_once_with(
+        name_prefix="collateral-ai-backend-matgen",
+        args=["manage.py", "generate_material", "--material-id", str(material.pk)],
+        backoff_limit=0,
+        active_deadline_seconds=600,
+        cpu="1",
+        memory="1Gi",
+    )
+    assert result == "matgen-abc"

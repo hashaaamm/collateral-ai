@@ -1,15 +1,17 @@
-"""Trigger material generation: inline command locally, Cloud Run Job in prod."""
+"""Trigger material generation: inline command locally, K8s Job in prod."""
 
 from __future__ import annotations
 
 from django.conf import settings
 from django.core.management import call_command
 
+from collateral_ai.worker_jobs import create_worker_job
+
 
 def trigger_generation(material) -> str:
     """Dispatch worker 2 for `material`.
 
-    Returns the Cloud Run operation name ('' inline).
+    Returns the created K8s Job name ('' inline).
 
     Unlike documents' trigger, callers must NOT suppress exceptions from this
     function — the view marks the material failed instead (spec §5.5).
@@ -20,25 +22,14 @@ def trigger_generation(material) -> str:
         call_command("generate_material", material_id=material.pk)
         return ""
 
-    from google.cloud import run_v2
-
-    name = (
-        f"projects/{settings.GOOGLE_CLOUD_PROJECT}"
-        f"/locations/{settings.MATERIAL_GENERATOR_REGION}/jobs/{job}"
+    # backoff_limit=0 is deliberate (unlike docproc): the command exits non-zero on
+    # deterministic failures like validation exhaustion, and an auto re-run would burn
+    # more LLM calls and flip a row the UI already shows as failed. (spec §6.6)
+    return create_worker_job(
+        name_prefix=job,
+        args=["manage.py", "generate_material", "--material-id", str(material.pk)],
+        backoff_limit=0,
+        active_deadline_seconds=600,
+        cpu="1",
+        memory="1Gi",
     )
-    overrides = run_v2.RunJobRequest.Overrides(
-        container_overrides=[
-            run_v2.RunJobRequest.Overrides.ContainerOverride(
-                args=[
-                    "manage.py",
-                    "generate_material",
-                    "--material-id",
-                    str(material.pk),
-                ],
-            ),
-        ],
-    )
-    operation = run_v2.JobsClient().run_job(
-        request=run_v2.RunJobRequest(name=name, overrides=overrides),
-    )
-    return getattr(getattr(operation, "operation", None), "name", "") or ""
