@@ -183,10 +183,16 @@ repo = gcp.artifactregistry.Repository(
 
 # --- GKE Autopilot cluster (async worker jobs) ----------------------------
 # Autopilot: node pools, VPC-native networking, and Workload Identity are managed/on by
-# default. The control plane is FULLY PRIVATE (no public endpoint): the backend (Cloud Run)
-# reaches it through the VPC connector, and it also creates the workers namespace + KSA
-# itself (see backend worker_jobs.ensure_worker_namespace), so Pulumi never needs cluster
-# API access — no public endpoint, no authorized-network allowlist, no operator IP to pin.
+# default. Private nodes; the control plane keeps a public endpoint restricted to
+# GKE_MASTER_AUTHORIZED_CIDR (the operator's ISP block) for occasional manual kubectl, while
+# the backend (Cloud Run) reaches it privately via the VPC connector (master_global_access).
+# NOTE: Pulumi does NOT create anything inside the cluster — the backend creates the workers
+# namespace + KSA itself (worker_jobs.ensure_worker_namespace), so no cluster API access is
+# needed at deploy time and the flapping-operator-IP bootstrap problem is gone. (A fully
+# private endpoint would additionally require the authorized CIDR to be an RFC1918 range, so
+# it's kept public-restricted here.)
+GKE_MASTER_AUTHORIZED_CIDR = os.environ.get("GKE_MASTER_AUTHORIZED_CIDR", "").strip()
+
 cluster = gcp.container.Cluster(
     f"{NAME}-autopilot",
     name=f"{NAME}-autopilot",
@@ -200,10 +206,17 @@ cluster = gcp.container.Cluster(
     ),
     private_cluster_config=gcp.container.ClusterPrivateClusterConfigArgs(
         enable_private_nodes=True,
-        enable_private_endpoint=True,
+        enable_private_endpoint=False,
         master_ipv4_cidr_block=os.environ.get("GKE_MASTER_CIDR", "172.16.0.0/28"),
         master_global_access_config=gcp.container.ClusterPrivateClusterConfigMasterGlobalAccessConfigArgs(
             enabled=True,
+        ),
+    ),
+    master_authorized_networks_config=gcp.container.ClusterMasterAuthorizedNetworksConfigArgs(
+        cidr_blocks=(
+            [gcp.container.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs(
+                cidr_block=GKE_MASTER_AUTHORIZED_CIDR, display_name="operator-ci")]
+            if GKE_MASTER_AUTHORIZED_CIDR else []
         ),
     ),
     release_channel=gcp.container.ClusterReleaseChannelArgs(channel="REGULAR"),

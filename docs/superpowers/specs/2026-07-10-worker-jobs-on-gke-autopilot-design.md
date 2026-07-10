@@ -66,18 +66,20 @@ Cloud Run backend  ────────────────────�
   - `enable_autopilot=True` (Autopilot → VPC-native + Workload Identity are on by default).
   - `ip_allocation_policy` referencing the VPC-native pod/service ranges.
   - `private_cluster_config`: `enable_private_nodes=True`,
-    **`enable_private_endpoint=True`** (control plane is **fully private — no public
-    endpoint**), `master_global_access_config` enabled so the in-VPC backend reaches the
-    control plane privately, `master_ipv4_cidr_block` = a spare /28.
-  - **No `master_authorized_networks_config`** and **no Pulumi Kubernetes provider.** Pulumi
-    never touches the cluster API, so there is nothing to allowlist and no operator/CI egress
-    IP to pin. This removes the earlier "restricted public endpoint" and its flapping-IP
-    problem entirely.
+    `enable_private_endpoint=False`, `master_global_access_config` enabled so the in-VPC
+    backend reaches the control plane privately, `master_ipv4_cidr_block` = a spare /28.
+  - `master_authorized_networks_config`: the operator's ISP block (`GKE_MASTER_AUTHORIZED_CIDR`,
+    a wide `/19` so the source IP doesn't flap out of range) — for occasional **manual
+    kubectl only**. **No Pulumi Kubernetes provider**: Pulumi never touches the cluster API,
+    because the backend creates the namespace + KSA itself (§2). The public endpoint is
+    therefore purely an operator convenience, not part of any automated path.
   - `release_channel` = REGULAR.
-  - **Rationale:** the backend's runtime path is fully private (VPC connector → private
-    control-plane endpoint), and the backend *also* creates the namespace + KSA itself (§2),
-    so IaC needs zero cluster access. A public endpoint / bastion would only have existed to
-    let laptop-run IaC reach the control plane — now unnecessary.
+  - **Why not `enable_private_endpoint=True` (fully private)?** GCP requires a private-endpoint
+    cluster's authorized networks to be RFC1918 ranges; our operator CIDR is a public ISP
+    block, so flipping the live cluster to fully-private was rejected. Since Pulumi needs no
+    cluster access anyway (backend self-bootstraps), a public endpoint locked to the operator
+    block is the pragmatic, already-working choice. Can revisit with an RFC1918 authorized
+    range + bastion later if desired.
 - **`gke-worker-sa`** (GCP service account) — least privilege for pods:
   - `roles/aiplatform.user` (Vertex embeddings + LLM)
   - `roles/storage.objectAdmin` (GCS media)
@@ -113,7 +115,7 @@ client**.
   process): idempotently `create_namespace("workers")` and `create_namespaced_service_account`
   for `worker` annotated with `iam.gke.io/gcp-service-account = WORKER_GCP_SERVICE_ACCOUNT`;
   `409 Conflict` (already exists) is swallowed. Called before the first Job submission. This
-  is why Pulumi needs no cluster access and the control plane can be fully private.
+  is why Pulumi needs no cluster access at deploy time.
 - **Job manifest** (`BatchV1Api().create_namespaced_job` into `WORKER_NAMESPACE`):
   - `image` = `WORKER_IMAGE` (SHA-pinned; forwarded from the backend's own env).
   - `command=["python"]`, `args=["manage.py","process_document","--document-id","<pk>"]`
@@ -184,9 +186,8 @@ if the threat model tightens.
 
 ## Rollout / ordering
 
-1. `pulumi up` — creates cluster (fully-private control plane), worker SA, WI binding,
-   `database-url-private`,
-   `container.developer` on `cloud-run-sa`.
+1. `pulumi up` — creates cluster (public endpoint restricted to the operator CIDR), worker SA,
+   WI binding, `database-url-private`, `container.developer` on `cloud-run-sa`.
 2. Wire the new Pulumi outputs into GitHub secrets.
 3. Merge backend + `cd.yml` changes → CD deploys the backend with the new env/egress and stops
    deploying the two Cloud Run Jobs.

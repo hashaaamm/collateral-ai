@@ -15,9 +15,11 @@ VPC_CONNECTOR_MIN_THROUGHPUT=200
 VPC_CONNECTOR_MAX_THROUGHPUT=300
 
 # --- GKE Autopilot (async worker jobs) ---
-# The control plane is fully private (no public endpoint): the backend reaches it over the VPC
-# connector and creates the workers namespace/KSA itself, so Pulumi needs no cluster access and
-# there is no operator IP to allowlist.
+# Pulumi never creates in-cluster objects (the backend creates the workers namespace/KSA
+# itself over the VPC connector), so no cluster access is needed at deploy time. The public
+# control-plane endpoint is kept only for occasional manual kubectl, restricted to this CIDR
+# (your ISP block / office range). Leave blank to disallow all public control-plane access.
+GKE_MASTER_AUTHORIZED_CIDR=
 # Control-plane /28 — must not overlap the subnet, connector, or the private-IP peering range.
 GKE_MASTER_CIDR=172.16.0.0/28
 # VPC-native secondary ranges for GKE pods/services — must not overlap the above.
