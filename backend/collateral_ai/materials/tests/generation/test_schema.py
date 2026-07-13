@@ -45,3 +45,27 @@ def test_schema_empty_slots_omits_enum():
     assert slots["minItems"] == 0
     assert slots["maxItems"] == 0
     assert "enum" not in slots["items"]["properties"]["slot_id"]
+
+
+def test_source_id_constrained_to_allowed_enum():
+    schema = build_response_schema(
+        constraints={"body_section_count": 2},
+        image_slots=[],
+        allowed_source_ids=["SENDER_SOURCE_1", "RECEIVER_SOURCE_1"],
+    )
+    source_id = schema["properties"]["source_references"]["items"]["properties"][
+        "source_id"
+    ]
+    assert source_id["enum"] == ["SENDER_SOURCE_1", "RECEIVER_SOURCE_1"]
+
+
+def test_source_id_unconstrained_when_no_ids():
+    schema = build_response_schema(
+        constraints={"body_section_count": 2},
+        image_slots=[],
+        allowed_source_ids=[],
+    )
+    source_id = schema["properties"]["source_references"]["items"]["properties"][
+        "source_id"
+    ]
+    assert "enum" not in source_id
