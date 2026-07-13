@@ -59,12 +59,8 @@ class InfraConfig:
     dns_project: str
     dns_zone: str
 
-    slug: str = "collateral_ai"
-
-    @property
-    def name(self) -> str:
-        """DNS-safe name (GCP resource names disallow underscores)."""
-        return self.slug.replace("_", "-")
+    # DNS-safe project prefix for every resource's logical + GCP name (no underscores).
+    name: str = "collateral-ai"
 
     @classmethod
     def from_env(cls) -> "InfraConfig":
@@ -95,8 +91,7 @@ class InfraConfig:
             stripe_webhook_secret_value=os.environ.get("STRIPE_WEBHOOK_SECRET_VALUE", "REPLACE_ME"),
             github_repo=os.environ.get("GITHUB_REPO", "").strip(),
             bucket_cors_allowed_origins=os.environ.get(
-                "BUCKET_CORS_ALLOWED_ORIGINS",
-                "http://localhost:3000,https://collateralai.tinyfleet.dev",
+                "BUCKET_CORS_ALLOWED_ORIGINS", "http://localhost:3000",
             ).split(","),
             frontend_hosting=os.environ.get("FRONTEND_HOSTING", "cloudrun"),
             domain=os.environ.get("DOMAIN", ""),

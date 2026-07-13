@@ -17,7 +17,7 @@ class Database(pulumi.ComponentResource):
         super().__init__("collateralai:infra:Database", "database", None, opts)
 
         self.password = random.RandomPassword(
-            f"{cfg.slug}-db-password",
+            f"{cfg.name}-db-password",
             length=cfg.db_password_length,
             special=False,
             opts=child_opts(self),
@@ -46,13 +46,13 @@ class Database(pulumi.ComponentResource):
             opts=child_opts(self, depends_on=[network.private_vpc_connection]),
         )
         gcp.sql.Database(
-            f"{cfg.slug}-database",
+            f"{cfg.name}-database",
             instance=self.instance.name,
             name=cfg.db_name,
             opts=child_opts(self),
         )
         gcp.sql.User(
-            f"{cfg.slug}-db-user",
+            f"{cfg.name}-db-user",
             instance=self.instance.name,
             name=cfg.db_user,
             password=self.password.result,

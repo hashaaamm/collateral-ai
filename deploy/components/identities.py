@@ -23,16 +23,16 @@ class RuntimeIdentity(pulumi.ComponentResource):
     def __init__(self, cfg: InfraConfig, opts=None):
         super().__init__("collateralai:infra:RuntimeIdentity", "runtime-identity", None, opts)
         self.sa = gcp.serviceaccount.Account(
-            f"{cfg.slug}-run-sa",
+            f"{cfg.name}-run-sa",
             account_id="cloud-run-sa",
             display_name="Cloud Run runtime",
             opts=child_opts(self),
         )
-        bind_project_roles(f"{cfg.slug}-run", cfg.project, self.sa, RUN_ROLES, parent=self)
+        bind_project_roles(f"{cfg.name}-run", cfg.project, self.sa, RUN_ROLES, parent=self)
 
         # Sign blobs AS ITSELF (keyless V4 signed URLs via IAM SignBlob) — GCS logo upload/display.
         gcp.serviceaccount.IAMMember(
-            f"{cfg.slug}-run-sa-token-creator",
+            f"{cfg.name}-run-sa-token-creator",
             service_account_id=self.sa.name,
             role="roles/iam.serviceAccountTokenCreator",
             member=self.sa.email.apply(lambda e: f"serviceAccount:{e}"),
@@ -45,7 +45,7 @@ class CicdIdentity(pulumi.ComponentResource):
     def __init__(self, cfg: InfraConfig, apis: ProjectApis, opts=None):
         super().__init__("collateralai:infra:CicdIdentity", "cicd-identity", None, opts)
         self.sa = gcp.serviceaccount.Account(
-            f"{cfg.slug}-cicd-sa",
+            f"{cfg.name}-cicd-sa",
             account_id="github-cicd-sa",
             display_name="GitHub Actions CI/CD",
             opts=child_opts(self),
@@ -54,7 +54,7 @@ class CicdIdentity(pulumi.ComponentResource):
         # React SPA on GCS+CDN: CI also rsyncs the build + invalidates the CDN.
         if cfg.frontend_hosting == "gcs":
             roles += CICD_GCS_ROLES
-        bind_project_roles(f"{cfg.slug}-cicd", cfg.project, self.sa, roles, parent=self)
+        bind_project_roles(f"{cfg.name}-cicd", cfg.project, self.sa, roles, parent=self)
 
         self.wif_provider_name: pulumi.Output | None = None
         if cfg.github_repo:

@@ -62,20 +62,20 @@ class WorkerCluster(pulumi.ComponentResource):
 
         # Least-privilege GSA for worker pods (Vertex + GCS; DB is private IP + password).
         self.worker_sa = gcp.serviceaccount.Account(
-            f"{cfg.slug}-gke-worker-sa",
+            f"{cfg.name}-gke-worker-sa",
             account_id="gke-worker-sa",
             display_name="GKE worker pods",
             opts=child_opts(self),
         )
         bind_project_roles(
-            f"{cfg.slug}-worker", cfg.project, self.worker_sa, WORKER_ROLES, parent=self,
+            f"{cfg.name}-worker", cfg.project, self.worker_sa, WORKER_ROLES, parent=self,
         )
 
         # Workload Identity: bind the in-cluster KSA workers/worker to the worker GSA.
         # depends_on the cluster: the PROJECT.svc.id.goog identity pool only exists once a
         # Workload-Identity-enabled cluster is created.
         gcp.serviceaccount.IAMMember(
-            f"{cfg.slug}-worker-wi",
+            f"{cfg.name}-worker-wi",
             service_account_id=self.worker_sa.name,
             role="roles/iam.workloadIdentityUser",
             member=pulumi.Output.concat(

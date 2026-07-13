@@ -18,6 +18,7 @@ class StaticMediaBucket(pulumi.ComponentResource):
             name=f"{cfg.project}-{cfg.name}-static-media",
             location=cfg.region,
             uniform_bucket_level_access=True,
+            force_destroy=True,  # allow teardown of a non-empty bucket (app-uploaded assets)
             cors=[gcp.storage.BucketCorArgs(
                 origins=cfg.bucket_cors_allowed_origins,
                 methods=["GET", "PUT", "POST", "DELETE"],

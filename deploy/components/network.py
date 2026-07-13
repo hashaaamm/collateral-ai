@@ -54,7 +54,7 @@ class Network(pulumi.ComponentResource):
             opts=child_opts(self),
         )
         self.private_vpc_connection = gcp.servicenetworking.Connection(
-            f"{cfg.slug}-private-vpc",
+            f"{cfg.name}-private-vpc",
             network=self.network.id,
             service="servicenetworking.googleapis.com",
             reserved_peering_ranges=[self.private_ip.name],

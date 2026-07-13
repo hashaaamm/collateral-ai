@@ -34,7 +34,7 @@ runtime = RuntimeIdentity(cfg)
 cicd = CicdIdentity(cfg, apis)
 
 # Secrets. django-secret-key value is a generated RandomPassword; feature secrets are gated.
-django_secret_key = random.RandomPassword(f"{cfg.slug}-django-secret", length=64, special=True)
+django_secret_key = random.RandomPassword(f"{cfg.name}-django-secret", length=64, special=True)
 
 secrets = SecretStore(cfg, apis)
 secrets.add("database-url", database.socket_url)
