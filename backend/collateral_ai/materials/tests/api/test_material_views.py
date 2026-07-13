@@ -86,7 +86,9 @@ def test_create_trigger_failure_marks_failed_but_returns_201(auth_client):
     assert resp.status_code == HTTPStatus.CREATED
     body = resp.json()
     assert body["generation_status"] == GenerationStatus.FAILED
-    assert "job boom" in body["error_message"]
+    # The raw exception must NOT leak to the client — only a generic message.
+    assert "job boom" not in body["error_message"]
+    assert body["error_message"] == "Generation could not be started. Please try again."
 
 
 def test_create_rejects_same_sender_and_receiver(auth_client):

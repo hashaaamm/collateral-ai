@@ -1,5 +1,6 @@
-import contextlib
+import logging
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import inline_serializer
@@ -21,7 +22,13 @@ from collateral_ai.documents.worker_trigger import trigger_processing
 from .serializers import DocumentSerializer
 
 ALLOWED_DOCUMENT_TYPES = {"application/pdf"}
+logger = logging.getLogger(__name__)
+
 FILE_NAME_MAX_LENGTH = 255  # matches Document.file_name max_length
+
+# User-facing failure text; the real exception is logged server-side, never
+# sent to clients.
+_GENERIC_DISPATCH_ERROR = "Processing could not be started. Please try again."
 
 
 class DocumentViewSet(
@@ -117,12 +124,19 @@ class DocumentViewSet(
         doc.save(update_fields=["status", "error_message", "updated_at"])
         # trigger_processing runs the pipeline INLINE (synchronous, in this
         # request thread) when DOCUMENT_PROCESSOR_JOB is unset — dev/local
-        # convenience. In prod it fires a Cloud Run Job and returns
-        # immediately. Either way the worker sets the row to failed on error,
-        # so we always report 202 and let the client poll the document's
-        # status.
-        with contextlib.suppress(Exception):
+        # convenience. In prod it fires a Kubernetes Job and returns immediately.
+        # If dispatch itself fails (e.g. the control plane is unreachable), mark
+        # the row failed with a generic message — never leak the raw exception —
+        # so the client stops polling a doc that will never progress.
+        try:
             trigger_processing(doc)
+        except Exception:
+            logger.exception("Document %s processing dispatch failed", doc.pk)
+            Document.objects.filter(pk=doc.pk).update(
+                status=DocumentStatus.FAILED,
+                error_message=_GENERIC_DISPATCH_ERROR,
+                updated_at=timezone.now(),
+            )
         doc.refresh_from_db()
         return Response(self.get_serializer(doc).data, status=status.HTTP_202_ACCEPTED)
 
