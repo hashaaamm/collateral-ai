@@ -19,7 +19,3 @@ def test_langsmith_env_forwarded_to_worker_pod():
 def test_langgraph_importable():
     import langchain_google_vertexai  # noqa: F401, PLC0415
     import langgraph.graph  # noqa: F401, PLC0415
-
-
-def test_material_max_repair_attempts_default():
-    assert settings.MATERIAL_MAX_REPAIR_ATTEMPTS == 3

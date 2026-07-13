@@ -21,8 +21,6 @@ knowledge, no unsupported claims.
 before writing.
 - Respect every constraint in template.constraints (word limits are hard \
 limits, counted by whitespace-separated words).
-- image_slots: return one entry per slot listed in template.image_slots, with \
-the same slot_id and source; write a short description of the ideal asset.
 - source_references: cite only source_id values that appear in sender_context \
 or receiver_context, and explain the fact used.
 - Keep the tone professional, credible, and specific.
@@ -37,10 +35,6 @@ Rules:
 - Do not add unsupported claims.
 - Respect all word limits (whitespace-separated words).
 - Use only allowed source IDs.
-- image_slots: return EXACTLY the slots in template_image_slots — same slot_ids,
-  same source values, nothing more. Remove any image slot the errors flag as
-  "Unknown image slot". If template_image_slots is empty, return an empty
-  array: "image_slots": [].
 """.strip()
 
 
@@ -73,7 +67,6 @@ def build_generation_payload(
         "template": {
             "name": template.name,
             "constraints": template.constraints,
-            "image_slots": template.image_slots,
         },
         "sender_context": [c.to_prompt_dict() for c in sender_chunks],
         "receiver_context": [c.to_prompt_dict() for c in receiver_chunks],

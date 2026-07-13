@@ -38,6 +38,15 @@ def _template():
     return tmpl
 
 
+def _template_with_slots():
+    tmpl = _template()
+    tmpl.image_slots = [
+        {"slot_id": "hero_image", "source": "generated_placeholder"},
+        {"slot_id": "sender_logo", "source": "sender"},
+    ]
+    return tmpl
+
+
 def _company(company_id, name):
     c = MagicMock()
     c.pk = company_id
@@ -71,7 +80,6 @@ def _valid_output():
             "body_sections": [{"title": "T", "text": "body text"}],
             "cta": "Act now",
         },
-        "image_slots": [],
         "source_references": [{"source_id": "SENDER_SOURCE_1", "used_fact": "f"}],
     }
 
@@ -112,7 +120,6 @@ def test_graph_repairs_once_then_succeeds():
             "body_sections": [{"title": "T", "text": "b"}],
             "cta": "c",
         },
-        "image_slots": [],
         "source_references": [{"source_id": "SENDER_SOURCE_1", "used_fact": "f"}],
     }
     model.generate_structured.side_effect = [invalid, _valid_output()]
@@ -144,7 +151,6 @@ def test_graph_fails_after_max_attempts():
             "body_sections": [{"title": "T", "text": "b"}],
             "cta": "c",
         },
-        "image_slots": [],
         "source_references": [{"source_id": "SENDER_SOURCE_1", "used_fact": "f"}],
     }
     model.generate_structured.return_value = invalid
@@ -161,3 +167,59 @@ def test_graph_fails_after_max_attempts():
 
     assert final["is_valid"] is False
     assert final["attempts"] == 2
+
+
+@pytest.mark.django_db
+def test_graph_stamps_image_slots_from_template_no_slots():
+    tmpl = _template()  # image_slots == []
+    material = _material(tmpl)
+    model = MagicMock()
+    model.generate_structured.return_value = _valid_output()
+    embedder, retriever, validator = _services(model)
+
+    graph = build_generation_graph(
+        embedder=embedder,
+        retriever=retriever,
+        model=model,
+        validator=validator,
+        max_repair_attempts=2,
+    )
+    final = graph.invoke(_initial_state(tmpl, material))
+
+    assert final["output"]["image_slots"] == []
+
+
+@pytest.mark.django_db
+def test_graph_stamps_image_slots_from_template_with_slots():
+    tmpl = _template_with_slots()
+    material = _material(tmpl)
+    model = MagicMock()
+    # Model returns garbage image_slots data (and even omits the key on the
+    # second call) — the stamp must overwrite it with the template's slots
+    # regardless of what the model produced.
+    output_with_garbage_slots = {
+        **_valid_output(),
+        "image_slots": [
+            {
+                "slot_id": "bogus_slot",
+                "source": "sender",
+                "description": "hallucinated",
+            },
+        ],
+    }
+    model.generate_structured.return_value = output_with_garbage_slots
+    embedder, retriever, validator = _services(model)
+
+    graph = build_generation_graph(
+        embedder=embedder,
+        retriever=retriever,
+        model=model,
+        validator=validator,
+        max_repair_attempts=2,
+    )
+    final = graph.invoke(_initial_state(tmpl, material))
+
+    assert final["output"]["image_slots"] == [
+        {"slot_id": "hero_image", "source": "generated_placeholder", "description": ""},
+        {"slot_id": "sender_logo", "source": "sender", "description": ""},
+    ]

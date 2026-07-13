@@ -9,48 +9,25 @@ CONSTRAINTS = {
     "body_section_max_words": 80,
     "cta_max_words": 15,
 }
-SLOTS = [
-    {
-        "slot_id": "hero_image",
-        "label": "Hero",
-        "spec": "1200×630",  # noqa: RUF001
-        "source": "generated_placeholder",
-    },
-    {"slot_id": "sender_logo", "label": "Logo", "spec": "SVG", "source": "sender"},
-]
 
 
-def test_schema_shape_and_slot_enum():
-    schema = build_response_schema(constraints=CONSTRAINTS, image_slots=SLOTS)
-    assert set(schema["properties"]) == {"article", "image_slots", "source_references"}
-    assert schema["required"] == ["article", "image_slots", "source_references"]
-    # template_id and theme are server-stamped — never model-generated (spec §4)
+def test_schema_shape_omits_image_slots():
+    schema = build_response_schema(constraints=CONSTRAINTS)
+    assert set(schema["properties"]) == {"article", "source_references"}
+    assert schema["required"] == ["article", "source_references"]
+    # template_id, theme, and image_slots are server-stamped — never
+    # model-generated (spec §4; image_slots is template-owned).
     assert "template_id" not in schema["properties"]
     assert "theme" not in schema["properties"]
-    slots = schema["properties"]["image_slots"]
-    assert slots["minItems"] == 2
-    assert slots["maxItems"] == 2
-    assert slots["items"]["properties"]["slot_id"]["enum"] == [
-        "hero_image",
-        "sender_logo",
-    ]
+    assert "image_slots" not in schema["properties"]
     body = schema["properties"]["article"]["properties"]["body_sections"]
     assert body["minItems"] == 2
     assert body["maxItems"] == 2
 
 
-def test_schema_empty_slots_omits_enum():
-    schema = build_response_schema(constraints=CONSTRAINTS, image_slots=[])
-    slots = schema["properties"]["image_slots"]
-    assert slots["minItems"] == 0
-    assert slots["maxItems"] == 0
-    assert "enum" not in slots["items"]["properties"]["slot_id"]
-
-
 def test_source_id_constrained_to_allowed_enum():
     schema = build_response_schema(
         constraints={"body_section_count": 2},
-        image_slots=[],
         allowed_source_ids=["SENDER_SOURCE_1", "RECEIVER_SOURCE_1"],
     )
     source_id = schema["properties"]["source_references"]["items"]["properties"][
@@ -62,7 +39,6 @@ def test_source_id_constrained_to_allowed_enum():
 def test_source_id_unconstrained_when_no_ids():
     schema = build_response_schema(
         constraints={"body_section_count": 2},
-        image_slots=[],
         allowed_source_ids=[],
     )
     source_id = schema["properties"]["source_references"]["items"]["properties"][

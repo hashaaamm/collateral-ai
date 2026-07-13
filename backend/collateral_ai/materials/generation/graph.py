@@ -39,6 +39,10 @@ class GenerationState(TypedDict, total=False):
 def _stamp(output: dict, template, material) -> dict:
     output["template_id"] = template.slug
     output["theme"] = dict(template.theme)
+    output["image_slots"] = [
+        {"slot_id": slot["slot_id"], "source": slot["source"], "description": ""}
+        for slot in template.image_slots
+    ]
     if material.cta_link:
         output.setdefault("article", {})["cta_url"] = material.cta_link
     return output
@@ -90,7 +94,6 @@ def build_generation_graph(
         allowed_ids = set(source_map)
         response_schema = build_response_schema(
             constraints=state["template"].constraints,
-            image_slots=state["template"].image_slots,
             allowed_source_ids=sorted(allowed_ids),
         )
         context_snapshot = {

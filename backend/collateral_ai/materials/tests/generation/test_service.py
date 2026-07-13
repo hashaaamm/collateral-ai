@@ -20,14 +20,6 @@ def _valid_output():
             ],
             "cta": "Act now",
         },
-        "image_slots": [
-            {
-                "slot_id": "hero_image",
-                "description": "d",
-                "source": "generated_placeholder",
-            },
-            {"slot_id": "sender_logo", "description": "d", "source": "sender"},
-        ],
         "source_references": [{"source_id": "SENDER_SOURCE_1", "used_fact": "f"}],
     }
 
@@ -57,6 +49,14 @@ def test_generate_completes_and_saves(monkeypatch):
     material.refresh_from_db()
     assert material.generation_status == GenerationStatus.COMPLETED
     assert material.output_json["article"]["headline"] == "Short headline"
+    assert material.output_json["image_slots"] == [
+        {
+            "slot_id": "hero_image",
+            "source": "generated_placeholder",
+            "description": "",
+        },
+        {"slot_id": "sender_logo", "source": "sender", "description": ""},
+    ]
     assert GenerationSource.objects.filter(material=material).count() == 1
 
 
