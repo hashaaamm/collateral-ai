@@ -94,9 +94,14 @@ class FrontendCdn(pulumi.ComponentResource):
             opts=child_opts(self),
         )
 
-        # 6. DNS A record in the SHARED-infra project (its own provider).
+        # 6. DNS A record in the SHARED-infra project (its own provider). The provider carries the
+        # root-stack alias too, so re-parenting it under this component is a state-only move (Pulumi
+        # otherwise shows it as delete+create — harmless for a provider, but the alias keeps the
+        # preview clean and avoids re-pointing the RecordSet at a new provider instance).
         dns_provider = gcp.Provider(
-            f"{name}-dns-provider", project=cfg.dns_project, opts=pulumi.ResourceOptions(parent=self))
+            f"{name}-dns-provider", project=cfg.dns_project,
+            opts=pulumi.ResourceOptions(
+                parent=self, aliases=[pulumi.Alias(parent=pulumi.ROOT_STACK_RESOURCE)]))
         gcp.dns.RecordSet(
             f"{name}-frontend-dns",
             name=f"{host}.",
