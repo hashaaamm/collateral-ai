@@ -115,12 +115,10 @@ export function LoginPage() {
               {errors.password?.message ?? ""}
             </p>
 
-            {/* Server error */}
-            {login.isError && (
-              <p className="mb-3 text-sm text-destructive">
-                {serverError}
-              </p>
-            )}
+            {/* Server error (space reserved to avoid layout shift) */}
+            <p className="mb-3 min-h-[20px] text-sm text-destructive">
+              {login.isError ? serverError : ""}
+            </p>
 
             <Button
               type="submit"
