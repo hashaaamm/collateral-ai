@@ -1,6 +1,8 @@
+from io import StringIO
 from unittest.mock import MagicMock
 
 import pytest
+from django.core.management import call_command
 
 from collateral_ai.documents.tests.factories import DocumentChunkFactory
 from collateral_ai.materials.management.commands import run_eval
@@ -59,3 +61,32 @@ def _fake_embedder():
     e = MagicMock()
     e.embed_query.return_value = [0.0] * 768
     return e
+
+
+def test_handle_uploads_scored_experiment_to_langsmith(monkeypatch):
+    fake_client_instance = MagicMock()
+    fake_client_cls = MagicMock(return_value=fake_client_instance)
+    monkeypatch.setattr("langsmith.Client", fake_client_cls)
+
+    fake_results = MagicMock()
+    fake_results.experiment_name = "abc123-experiment"
+    fake_evaluate = MagicMock(return_value=fake_results)
+    monkeypatch.setattr("langsmith.evaluation.evaluate", fake_evaluate)
+
+    call_command(
+        "run_eval",
+        name="material-gen-golden",
+        label="abc123",
+        stdout=StringIO(),
+    )
+
+    fake_evaluate.assert_called_once()
+    call_args, call_kwargs = fake_evaluate.call_args
+    target = call_args[0]
+    assert callable(target)
+    assert call_kwargs["data"] == "material-gen-golden"
+    assert call_kwargs["client"] is fake_client_instance
+    assert call_kwargs["experiment_prefix"] == "abc123"
+    evaluators_arg = call_kwargs["evaluators"]
+    assert len(evaluators_arg) > 0
+    assert all(callable(e) for e in evaluators_arg)

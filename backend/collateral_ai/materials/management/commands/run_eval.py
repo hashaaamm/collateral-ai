@@ -1,7 +1,7 @@
 """Offline eval runner: run the generation graph over the golden dataset and grade.
 
-Not part of the live path. Uploads a named experiment to LangSmith when tracing
-is configured; always prints local aggregate scores.
+Not part of the live path. Uploads a scored, named experiment to LangSmith
+(populating the side-by-side comparison UI) and prints a short local summary.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from django.core.management.base import BaseCommand
 from collateral_ai.materials.generation.eval import evaluators
 from collateral_ai.materials.generation.service import MaterialGenerationService
 from collateral_ai.materials.models import MarketingMaterial
+from collateral_ai.materials.models import Template
 
 
 def _git_sha() -> str:
@@ -44,8 +45,59 @@ def evaluate_one(material_id: int, *, judge=None) -> dict:
     }
 
 
+def _allowed_ids(context: dict) -> set[str]:
+    return {
+        item["source_id"]
+        for key in ("sender_context", "receiver_context")
+        for item in context.get(key, [])
+    }
+
+
+def _target(inputs: dict) -> dict:
+    """LangSmith target: run generation for one dataset example and return outputs."""
+    material_id = inputs["material_id"]
+    MaterialGenerationService().generate(material_id, force=True)
+    material = MarketingMaterial.objects.select_related("template").get(pk=material_id)
+    return {
+        "output": material.output_json or {},
+        "context": material.retrieved_context or {},
+        "template_id": material.template_id,
+    }
+
+
+def _eval_schema_valid(run, example=None):
+    outputs = run.outputs or {}
+    template = Template.objects.get(pk=outputs["template_id"])
+    return {
+        "key": "schema_valid",
+        "score": evaluators.schema_valid(outputs["output"], template),
+    }
+
+
+def _eval_sources_grounded(run, example=None):
+    outputs = run.outputs or {}
+    allowed_ids = _allowed_ids(outputs.get("context", {}))
+    score = evaluators.sources_grounded(outputs["output"], allowed_ids)
+    return {"key": "sources_grounded", "score": score}
+
+
+def _eval_counts_match(run, example=None):
+    outputs = run.outputs or {}
+    template = Template.objects.get(pk=outputs["template_id"])
+    return {
+        "key": "counts_match",
+        "score": evaluators.counts_match(outputs["output"], template),
+    }
+
+
+def _eval_groundedness(run, example=None):
+    outputs = run.outputs or {}
+    score = evaluators.groundedness_judge(outputs["output"], outputs.get("context", {}))
+    return {"key": "groundedness", "score": score}
+
+
 class Command(BaseCommand):
-    help = "Run the generation graph over the golden dataset and grade outputs."
+    help = "Run generation over the golden dataset and upload a scored experiment"
 
     def add_arguments(self, parser):
         parser.add_argument("--name", default="material-gen-golden")
@@ -53,18 +105,22 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from langsmith import Client  # noqa: PLC0415
+        from langsmith.evaluation import evaluate  # noqa: PLC0415
 
         label = options["label"] or _git_sha()
         client = Client()
-        dataset = client.read_dataset(dataset_name=options["name"])
-        records = []
-        for example in client.list_examples(dataset_id=dataset.id):
-            material_id = example.inputs["material_id"]
-            records.append(evaluate_one(material_id))
-        n = len(records) or 1
-        self.stdout.write(f"Experiment: {label}  (n={len(records)})")
-        for key in ("schema_valid", "sources_grounded", "counts_match"):
-            passed = sum(1 for r in records if r[key])
-            self.stdout.write(f"  {key}: {passed}/{len(records)}")
-        avg_ground = sum(r["groundedness"] for r in records) / n
-        self.stdout.write(self.style.SUCCESS(f"  groundedness avg: {avg_ground:.3f}"))
+        results = evaluate(
+            _target,
+            data=options["name"],
+            evaluators=[
+                _eval_schema_valid,
+                _eval_sources_grounded,
+                _eval_counts_match,
+                _eval_groundedness,
+            ],
+            experiment_prefix=label,
+            client=client,
+        )
+        experiment_name = getattr(results, "experiment_name", label)
+        msg = f"Uploaded experiment '{experiment_name}' (dataset={options['name']})"
+        self.stdout.write(self.style.SUCCESS(msg))
