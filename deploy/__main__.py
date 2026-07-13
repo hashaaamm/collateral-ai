@@ -9,6 +9,7 @@ Pulumi owns infrastructure; GitHub Actions owns deploys. Config is read from dep
 """
 
 import pulumi
+import pulumi_random as random
 
 from components.apis import ProjectApis
 from components.database import Database
@@ -33,8 +34,6 @@ runtime = RuntimeIdentity(cfg)
 cicd = CicdIdentity(cfg, apis)
 
 # Secrets. django-secret-key value is a generated RandomPassword; feature secrets are gated.
-import pulumi_random as random  # noqa: E402  (local: only the orchestrator needs it)
-
 django_secret_key = random.RandomPassword(f"{cfg.slug}-django-secret", length=64, special=True)
 
 secrets = SecretStore(cfg, apis)

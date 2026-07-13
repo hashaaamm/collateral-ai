@@ -1,9 +1,18 @@
-import os
 import pytest
+import config
 from config import InfraConfig
 
 
+@pytest.fixture(autouse=True)
+def _no_dotenv(monkeypatch):
+    # Isolate the parse from any real deploy/.env so from_env() reflects os.environ only,
+    # making these tests deterministic on developer machines (a present .env would otherwise
+    # re-inject GOOGLE_PROJECT / GOOGLE_REGION and defeat the assertions below).
+    monkeypatch.setattr(config, "load_dotenv", lambda *a, **k: None)
+
+
 def test_from_env_coerces_and_defaults(monkeypatch):
+    monkeypatch.delenv("GOOGLE_REGION", raising=False)
     monkeypatch.setenv("GOOGLE_PROJECT", "proj-123")
     monkeypatch.setenv("SQL_DELETION_PROTECTION", "false")
     monkeypatch.setenv("VPC_CONNECTOR_MIN_THROUGHPUT", "250")

@@ -16,6 +16,7 @@ class SecretStore(pulumi.ComponentResource):
         super().__init__("collateralai:infra:SecretStore", "secrets", None, opts)
         self._apis = apis
         self.secrets: dict[str, gcp.secretmanager.Secret] = {}
+        self.register_outputs({})
 
     def add(self, name: str, value: pulumi.Input[str]) -> gcp.secretmanager.Secret:
         secret = gcp.secretmanager.Secret(
