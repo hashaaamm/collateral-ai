@@ -140,7 +140,8 @@ class MaterialViewSet(
                 operation_name = trigger_generation(material)
         except Exception:  # any trigger failure → failed row, generic client message
             logger.exception(
-                "Material %s generation dispatch failed", material.pk,
+                "Material %s generation dispatch failed",
+                material.pk,
             )
             MarketingMaterial.objects.filter(pk=material.pk).update(
                 generation_status=GenerationStatus.FAILED,
