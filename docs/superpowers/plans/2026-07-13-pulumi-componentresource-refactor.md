@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restructure `deploy/` from a ~400-line procedural `__main__.py` into a typed config object plus one `pulumi.ComponentResource` per subsystem, preserving live prod state via `no_parent` aliases.
+**Goal:** Restructure `deploy/` from a ~400-line procedural `__main__.py` into a typed config object plus one `pulumi.ComponentResource` per subsystem, preserving live prod state via `ROOT_STACK_RESOURCE` aliases.
 
-**Architecture:** A frozen `InfraConfig` dataclass parses all env vars in one place. Each subsystem becomes a `ComponentResource` under `deploy/components/`, wired explicitly through constructors by a thin `__main__.py` orchestrator. Every wrapped resource keeps its exact current logical name and gets `pulumi.Alias(no_parent=True)` so Pulumi re-parents in state with no cloud diff.
+**Architecture:** A frozen `InfraConfig` dataclass parses all env vars in one place. Each subsystem becomes a `ComponentResource` under `deploy/components/`, wired explicitly through constructors by a thin `__main__.py` orchestrator. Every wrapped resource keeps its exact current logical name and gets `pulumi.Alias(parent=pulumi.ROOT_STACK_RESOURCE)` so Pulumi re-parents in state with no cloud diff.
 
 **Tech Stack:** Pulumi (Python) `>=3.165,<4`, `pulumi-gcp>=8.27,<9`, `pulumi-random>=4.16,<5`, `python-dotenv`, GCS-backed self-managed state.
 
@@ -12,7 +12,7 @@
 
 - **Logical names are frozen.** The first positional arg of every `gcp.*` / `random.*` resource must stay byte-for-byte identical to the current `deploy/__main__.py` / `deploy/frontend_hosting.py`. This is what the aliases match on. The mixed `NAME`- vs `SLUG`-prefix scheme is preserved exactly, even where inconsistent.
 - **Resource types are frozen.** Same constructors; components wrap, never substitute.
-- **Every wrapped resource gets `aliases=[pulumi.Alias(no_parent=True)]`** via the `child_opts()` helper. No exceptions.
+- **Every wrapped resource gets `aliases=[pulumi.Alias(parent=pulumi.ROOT_STACK_RESOURCE)]`** via the `child_opts()` helper. No exceptions.
 - **Existing `depends_on` relationships are preserved** by threading them through `child_opts(..., depends_on=[...])`.
 - **Stack output names are unchanged** (GitHub Actions `cd.yml` / `jobs.yml` consume them): `project_id`, `region`, `vpc_connector_id`, `cloud_run_service_account_email`, `github_cicd_service_account_email`, `db_instance_connection_name`, `artifact_registry_repo_url`, `static_media_bucket_name`, `gke_cluster_endpoint`, `gke_cluster_ca_cert`, `gke_worker_namespace`, `gke_worker_ksa`, `gke_worker_sa_email`, conditional `wif_provider`, and (gcs path) `frontend_url` / `frontend_lb_ip` / `frontend_bucket`.
 - **`SLUG = "collateral_ai"`, `NAME = SLUG.replace("_", "-")`** semantics preserved.
@@ -204,28 +204,39 @@ git commit -m "refactor(deploy): add typed InfraConfig, centralize env parsing"
 - Test: `deploy/tests/test_iam.py`
 
 **Interfaces:**
-- Produces: `child_opts(parent, *, depends_on=None) -> pulumi.ResourceOptions` (sets `parent`, `aliases=[pulumi.Alias(no_parent=True)]`, `depends_on`). `bind_project_roles(prefix: str, project: str, sa, roles, *, parent=None) -> None` — one `gcp.projects.IAMMember` per role, named `f"{prefix}-{role.split('/')[-1]}"`, member `serviceAccount:{sa.email}`; when `parent` is set, children are aliased via `child_opts`.
+- Produces: `child_opts(parent, *, depends_on=None) -> pulumi.ResourceOptions` (sets `parent`, `aliases=[pulumi.Alias(parent=pulumi.ROOT_STACK_RESOURCE)]`, `depends_on`). `bind_project_roles(prefix: str, project: str, sa, roles, *, parent=None) -> None` — one `gcp.projects.IAMMember` per role, named `f"{prefix}-{role.split('/')[-1]}"`, member `serviceAccount:{sa.email}`; when `parent` is set, children are aliased via `child_opts`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
 # deploy/tests/test_iam.py
+from unittest import mock
+
 import pulumi
 from _iam import child_opts
 
 
-def test_child_opts_sets_no_parent_alias():
+def test_child_opts_sets_root_stack_alias():
     sentinel = object()
     opts = child_opts(sentinel)
     assert opts.parent is sentinel
     assert len(opts.aliases) == 1
-    assert opts.aliases[0].no_parent is True
+    # parent=ROOT_STACK_RESOURCE means "previously a root-stack resource"; name left as the
+    # Ellipsis sentinel means "keep the current name".
+    assert opts.aliases[0].parent is pulumi.ROOT_STACK_RESOURCE
+    assert opts.aliases[0].name is ...
 
 
 def test_child_opts_threads_depends_on():
-    dep = object()
+    # ResourceOptions validates depends_on entries must be Resources; stand in with a mock.
+    dep = mock.MagicMock(spec=pulumi.Resource)
     opts = child_opts(object(), depends_on=[dep])
     assert opts.depends_on == [dep]
+
+
+def test_child_opts_defaults_depends_on_to_none():
+    opts = child_opts(object())
+    assert opts.depends_on is None
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -245,12 +256,16 @@ import pulumi_gcp as gcp
 
 
 def child_opts(parent, *, depends_on=None) -> pulumi.ResourceOptions:
-    """ResourceOptions for a resource moved under `parent`. The no_parent alias tells
-    Pulumi the resource was formerly a root-stack resource, so re-parenting it under a
-    ComponentResource is a state-only change (no replacement)."""
+    """ResourceOptions for a resource moved under `parent`.
+
+    The alias declares the resource was previously parented by the root stack, so re-parenting
+    it under a ComponentResource is a state-only change (no replacement). `pulumi.ROOT_STACK_RESOURCE`
+    is the SDK's self-descriptive spelling of "no original parent" (it is None); leaving the alias
+    name unset keeps the same name. (The Go/TS `no_parent=True` flag has no Python equivalent.)
+    """
     return pulumi.ResourceOptions(
         parent=parent,
-        aliases=[pulumi.Alias(no_parent=True)],
+        aliases=[pulumi.Alias(parent=pulumi.ROOT_STACK_RESOURCE)],
         depends_on=depends_on,
     )
 
@@ -1047,7 +1062,7 @@ class FrontendCdn(pulumi.ComponentResource):
             type="A", ttl=300, managed_zone=cfg.dns_zone,
             rrdatas=[ip.address], project=cfg.dns_project,
             opts=pulumi.ResourceOptions(
-                parent=self, provider=dns_provider, aliases=[pulumi.Alias(no_parent=True)]),
+                parent=self, provider=dns_provider, aliases=[pulumi.Alias(parent=pulumi.ROOT_STACK_RESOURCE)]),
         )
 
         pulumi.export("frontend_url", f"https://{host}")
@@ -1056,7 +1071,7 @@ class FrontendCdn(pulumi.ComponentResource):
         self.register_outputs({})
 ```
 
-> **Note on `{name}-dns-provider`:** it is a `pulumi.Provider`, not a cloud resource, but it *is* tracked in state and was previously root-parented, so it also carries the re-parent. Providers cannot take an `Alias(no_parent=True)` the same way in all SDK versions — if the Task 13 preview shows the provider as replace/create, drop the alias for it (a provider replacement has no cloud effect) or set `parent=self` only. Resolve empirically against the preview.
+> **Note on `{name}-dns-provider`:** it is a `pulumi.Provider`, not a cloud resource, but it *is* tracked in state and was previously root-parented, so it also carries the re-parent. Providers may not re-parent cleanly in all SDK versions — if the Task 13 preview shows the provider as replace/create, drop the alias for it (a provider replacement has no cloud effect) or set `parent=self` only. Resolve empirically against the preview.
 
 - [ ] **Step 2: Verify the module imports**
 
@@ -1244,7 +1259,7 @@ Paste the `Resources:` summary line into the PR description / hand it to the use
 
 **Spec coverage:**
 - File layout (config.py, _iam.py, components/*) → Tasks 1–11. ✓
-- Alias safety mechanism (`child_opts` / `no_parent=True`) → Task 2, applied in every component. ✓
+- Alias safety mechanism (`child_opts` / `Alias(parent=ROOT_STACK_RESOURCE)`) → Task 2, applied in every component. ✓
 - Config object killing scattered `os.environ.get` → Task 1. ✓
 - Component interfaces table (ProjectApis…FrontendCdn) → Tasks 3–10, matching exposed attributes. ✓
 - IAM dedup (`bind_project_roles`) → Task 2, used in Tasks 8–9. ✓
@@ -1257,4 +1272,4 @@ Paste the `Resources:` summary line into the PR description / hand it to the use
 
 **Type/name consistency:** `child_opts` / `bind_project_roles` signatures match between Task 2 and all callers. Component attribute names (`network.network`, `network.subnet`, `registry.repo`, `database.socket_url`/`private_url`, `runtime.sa`, `cicd.sa`/`wif_provider_name`, `workers.cluster`/`worker_sa`, `bucket.bucket`, `apis.apis`) are consistent across producer and consumer tasks. Export names verified against the current `__main__.py`. ✓
 
-**Known empirical unknowns flagged inline:** `pulumi.Alias(no_parent=True)` exact behavior and the `{name}-dns-provider` provider alias — both are gated by the Task 13 preview, which is the source of truth.
+**Known empirical unknowns flagged inline:** `pulumi.Alias(parent=pulumi.ROOT_STACK_RESOURCE)` exact behavior and the `{name}-dns-provider` provider alias — both are gated by the Task 13 preview, which is the source of truth.
