@@ -356,6 +356,13 @@ MATERIAL_GENERATION_MAX_OUTPUT_TOKENS = env.int(
 )
 MATERIAL_RETRIEVAL_TOP_K = env.int("MATERIAL_RETRIEVAL_TOP_K", default=8)
 MATERIAL_MAX_REPAIR_ATTEMPTS = env.int("MATERIAL_MAX_REPAIR_ATTEMPTS", default=2)
+MATERIAL_LLM_PROVIDER = env("MATERIAL_LLM_PROVIDER", default="vertex")
+MATERIAL_EVAL_JUDGE_MODEL = env("MATERIAL_EVAL_JUDGE_MODEL", default="gemini-2.5-flash")
+
+# LangSmith tracing (no-op when LANGSMITH_TRACING is unset/false).
+LANGSMITH_TRACING = env("LANGSMITH_TRACING", default="")
+LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default="")
+LANGSMITH_PROJECT = env("LANGSMITH_PROJECT", default="collateral-material-gen")
 
 # GKE Autopilot worker jobs (prod async workers)
 # ------------------------------------------------------------------------------
