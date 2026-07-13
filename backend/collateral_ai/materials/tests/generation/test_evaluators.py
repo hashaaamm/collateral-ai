@@ -41,3 +41,8 @@ def test_groundedness_judge_parses_injected_score():
         judge=lambda prompt: "0.75",
     )
     assert score == 0.75
+
+
+def test_specificity_judge_parses_injected_score():
+    score = evaluators.specificity_judge(_output(), judge=lambda p: "0.6")
+    assert score == 0.6

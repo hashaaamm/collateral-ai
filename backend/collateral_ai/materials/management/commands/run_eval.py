@@ -42,6 +42,7 @@ def evaluate_one(material_id: int, *, judge=None) -> dict:
         "sources_grounded": evaluators.sources_grounded(output, allowed_ids),
         "counts_match": evaluators.counts_match(output, material.template),
         "groundedness": evaluators.groundedness_judge(output, context, judge=judge),
+        "specificity": evaluators.specificity_judge(output, judge=judge),
     }
 
 
@@ -114,6 +115,15 @@ def _eval_groundedness(run, example=None):
     return {"key": "groundedness", "score": score}
 
 
+def _eval_specificity(run, example=None):
+    outputs = run.outputs or {}
+    output = outputs.get("output")
+    if not output:
+        return {"key": "specificity", "score": 0.0}
+    score = evaluators.specificity_judge(output)
+    return {"key": "specificity", "score": score}
+
+
 class Command(BaseCommand):
     help = "Run generation over the golden dataset and upload a scored experiment"
 
@@ -135,6 +145,7 @@ class Command(BaseCommand):
                 _eval_sources_grounded,
                 _eval_counts_match,
                 _eval_groundedness,
+                _eval_specificity,
             ],
             experiment_prefix=label,
             client=client,

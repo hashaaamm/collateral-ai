@@ -74,3 +74,23 @@ def groundedness_judge(output: dict, context: dict, *, judge=None) -> float:
         return float(json.loads(raw)["score"])
     except (json.JSONDecodeError, KeyError, TypeError):
         return float(raw)
+
+
+_SPECIFICITY_PROMPT = """You grade how SPECIFIC and concrete B2B marketing copy is.
+Return ONLY JSON: {{"score": <number 0..1>}}.
+1.0 = names concrete products/numbers/facts specific to these two companies;
+0.0 = generic filler that could describe any company (buzzwords like "revolutionize",
+"cutting-edge", "unlock", "the future of", "game-changing" with no concrete referent).
+
+article: {article}
+"""
+
+
+def specificity_judge(output: dict, *, judge=None) -> float:
+    judge = judge or _default_judge
+    prompt = _SPECIFICITY_PROMPT.format(article=json.dumps(output.get("article", {})))
+    raw = judge(prompt).strip()
+    try:
+        return float(json.loads(raw)["score"])
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return float(raw)
