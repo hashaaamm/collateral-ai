@@ -31,8 +31,11 @@ def _template_three_sections_no_slots():
     return TemplateFactory(
         name="Longform three sections",
         constraints={
-            "headline_max_words": 12, "subheadline_max_words": 24,
-            "body_section_count": 3, "body_section_max_words": 90, "cta_max_words": 12,
+            "headline_max_words": 12,
+            "subheadline_max_words": 24,
+            "body_section_count": 3,
+            "body_section_max_words": 90,
+            "cta_max_words": 12,
         },
         image_slots=[],
     )
