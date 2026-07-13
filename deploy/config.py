@@ -82,7 +82,7 @@ class InfraConfig:
             sql_instance_tier=os.environ.get("SQL_INSTANCE_TIER", "db-custom-1-3840"),
             sql_availability_type=os.environ.get("SQL_AVAILABILITY_TYPE", "ZONAL"),
             sql_deletion_protection=_bool("SQL_DELETION_PROTECTION", True),
-            gke_master_authorized_cidr=os.environ.get("GKE_MASTER_AUTHORIZED_CIDR", "").strip(),
+            gke_master_authorized_cidr=os.environ.get("GKE_MASTER_AUTHORIZED_CIDR", "0.0.0.0/0").strip(),
             gke_master_cidr=os.environ.get("GKE_MASTER_CIDR", "172.16.0.0/28"),
             enable_payments=_bool("ENABLE_PAYMENTS", True),
             enable_email=_bool("ENABLE_EMAIL", True),

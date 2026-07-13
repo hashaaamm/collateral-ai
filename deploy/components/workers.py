@@ -28,7 +28,6 @@ class WorkerCluster(pulumi.ComponentResource):
     ):
         super().__init__("collateralai:infra:WorkerCluster", "workers", None, opts)
 
-        authorized = cfg.gke_master_authorized_cidr
         self.cluster = gcp.container.Cluster(
             f"{cfg.name}-autopilot",
             name=f"{cfg.name}-autopilot",
@@ -48,12 +47,14 @@ class WorkerCluster(pulumi.ComponentResource):
                     enabled=True,
                 ),
             ),
+            # Public control-plane endpoint, gated by GCP IAM + Kubernetes RBAC rather than a
+            # source-IP allowlist. Defaults to 0.0.0.0/0 so the Cloud Run backend (dynamic egress)
+            # and kubectl can reach it with auth — no operator/CI/Cloud-Run IP to pin, no
+            # flapping-IP failures. Narrow GKE_MASTER_AUTHORIZED_CIDR to re-restrict it.
             master_authorized_networks_config=gcp.container.ClusterMasterAuthorizedNetworksConfigArgs(
-                cidr_blocks=(
-                    [gcp.container.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs(
-                        cidr_block=authorized, display_name="operator-ci")]
-                    if authorized else []
-                ),
+                cidr_blocks=[gcp.container.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs(
+                    cidr_block=cfg.gke_master_authorized_cidr, display_name="public-iam-gated")],
+                gcp_public_cidrs_access_enabled=True,
             ),
             release_channel=gcp.container.ClusterReleaseChannelArgs(channel="REGULAR"),
             deletion_protection=False,
