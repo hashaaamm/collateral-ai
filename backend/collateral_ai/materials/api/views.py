@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from django.db import transaction
 from django.db.models import Q
@@ -29,6 +30,12 @@ from .serializers import MaterialDetailSerializer
 from .serializers import MaterialListSerializer
 from .serializers import MaterialUpdateSerializer
 from .serializers import TemplateSerializer
+
+logger = logging.getLogger(__name__)
+
+# User-facing failure text. The real exception (which may leak infra details
+# like internal hostnames) is logged server-side, never surfaced to the client.
+_GENERIC_DISPATCH_ERROR = "Generation could not be started. Please try again."
 
 # A queued/processing row older than this is considered stranded (crashed job)
 # and may be regenerated (spec §5.2). Comfortably above the 600s job timeout.
@@ -131,10 +138,14 @@ class MaterialViewSet(
         try:
             with transaction.atomic():
                 operation_name = trigger_generation(material)
-        except Exception as exc:  # noqa: BLE001 — any trigger failure → failed row
+        except Exception:  # any trigger failure → failed row, generic client message
+            logger.exception(
+                "Material %s generation dispatch failed",
+                material.pk,
+            )
             MarketingMaterial.objects.filter(pk=material.pk).update(
                 generation_status=GenerationStatus.FAILED,
-                error_message=str(exc),
+                error_message=_GENERIC_DISPATCH_ERROR,
                 updated_at=timezone.now(),
             )
         else:

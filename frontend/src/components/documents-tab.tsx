@@ -1,16 +1,15 @@
 import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowClockwise, ArrowSquareOut, FilePdf, Trash, UploadSimple } from "@phosphor-icons/react";
 
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { StatusPill } from "@/components/status-pill";
+import { useUploads } from "@/components/uploads/use-uploads";
 import { LoadingState } from "@/components/ui/spinner";
 import {
   fetchDocumentViewUrl,
   useCompleteDocument,
   useDeleteDocument,
   useDocuments,
-  uploadDocument,
   type Document,
 } from "@/lib/api/documents";
 
@@ -19,25 +18,24 @@ function num(n: number | null | undefined) {
 }
 
 export function DocumentsTab({ companyId }: { companyId: number }) {
-  const qc = useQueryClient();
   const { data: docs = [], isLoading } = useDocuments(companyId);
   const retry = useCompleteDocument();
   const del = useDeleteDocument();
+  const { enqueue } = useUploads();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [progress, setProgress] = useState<number | null>(null);
-  const [error, setError] = useState<string>("");
+  const [openError, setOpenError] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
   const [openingId, setOpeningId] = useState<number | null>(null);
 
   async function onOpen(d: Document) {
-    setError("");
+    setOpenError("");
     setOpeningId(d.id);
     // Open the tab synchronously (before the await) so the browser doesn't treat
     // it as a popup. Note: passing "noopener" to window.open makes it return null,
     // so we keep the handle and null `opener` ourselves before navigating.
     const w = window.open("", "_blank");
     if (!w) {
-      setError("Couldn't open the document. Allow pop-ups and try again.");
+      setOpenError("Couldn't open the document. Allow pop-ups and try again.");
       setOpeningId(null);
       return;
     }
@@ -47,33 +45,10 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
       w.location.href = url;
     } catch {
       w.close();
-      setError("Couldn't open the document. Try again.");
+      setOpenError("Couldn't open the document. Try again.");
     } finally {
       setOpeningId(null);
     }
-  }
-
-  async function onFiles(files: FileList | null) {
-    if (!files) return;
-    setError("");
-    for (const file of Array.from(files)) {
-      if (file.type !== "application/pdf") {
-        setError("Only PDF files are supported.");
-        continue;
-      }
-      setProgress(0);
-      try {
-        await uploadDocument({ companyId, file, onProgress: setProgress });
-      } catch (e) {
-        setError(
-          e instanceof Error && e.message === "upload_not_configured"
-            ? "Document upload isn't configured in this environment."
-            : "Upload failed. Try again.",
-        );
-      }
-    }
-    setProgress(null);
-    qc.invalidateQueries({ queryKey: ["documents", companyId] });
   }
 
   return (
@@ -85,7 +60,9 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
         multiple
         hidden
         aria-label="Upload PDF documents"
-        onChange={(e) => onFiles(e.target.files)}
+        onChange={(e) => {
+          if (e.target.files) enqueue(e.target.files, companyId);
+        }}
       />
       <button
         type="button"
@@ -99,12 +76,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
         <span className="text-[11.5px] text-faint">PDF only · max 50 MB</span>
       </button>
 
-      {progress !== null && (
-        <div className="mb-4 h-[6px] w-full overflow-hidden rounded-full bg-hairline-soft">
-          <div className="h-full bg-brand transition-[width]" style={{ width: `${progress}%` }} />
-        </div>
-      )}
-      {error && <p className="mb-3 text-[12.5px] text-destructive">{error}</p>}
+      {openError && <p className="mb-3 text-[12.5px] text-destructive">{openError}</p>}
 
       {isLoading ? (
         <LoadingState />
