@@ -90,3 +90,51 @@ def test_handle_uploads_scored_experiment_to_langsmith(monkeypatch):
     evaluators_arg = call_kwargs["evaluators"]
     assert len(evaluators_arg) > 0
     assert all(callable(e) for e in evaluators_arg)
+
+
+class _FakeRun:
+    def __init__(self, outputs):
+        self.outputs = outputs
+
+
+@pytest.mark.parametrize("outputs", [None, {}])
+def test_eval_wrappers_score_failure_when_outputs_missing(outputs):
+    run = _FakeRun(outputs)
+
+    assert run_eval._eval_schema_valid(run) == {  # noqa: SLF001
+        "key": "schema_valid",
+        "score": False,
+    }
+    assert run_eval._eval_sources_grounded(run) == {  # noqa: SLF001
+        "key": "sources_grounded",
+        "score": False,
+    }
+    assert run_eval._eval_counts_match(run) == {  # noqa: SLF001
+        "key": "counts_match",
+        "score": False,
+    }
+    assert run_eval._eval_groundedness(run) == {  # noqa: SLF001
+        "key": "groundedness",
+        "score": 0.0,
+    }
+
+
+def test_eval_wrappers_score_failure_when_output_falsy_but_present():
+    run = _FakeRun({"output": {}, "template_id": None, "context": {}})
+
+    assert run_eval._eval_schema_valid(run) == {  # noqa: SLF001
+        "key": "schema_valid",
+        "score": False,
+    }
+    assert run_eval._eval_sources_grounded(run) == {  # noqa: SLF001
+        "key": "sources_grounded",
+        "score": False,
+    }
+    assert run_eval._eval_counts_match(run) == {  # noqa: SLF001
+        "key": "counts_match",
+        "score": False,
+    }
+    assert run_eval._eval_groundedness(run) == {  # noqa: SLF001
+        "key": "groundedness",
+        "score": 0.0,
+    }

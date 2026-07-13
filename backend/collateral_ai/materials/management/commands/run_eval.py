@@ -67,32 +67,50 @@ def _target(inputs: dict) -> dict:
 
 def _eval_schema_valid(run, example=None):
     outputs = run.outputs or {}
-    template = Template.objects.get(pk=outputs["template_id"])
+    output = outputs.get("output")
+    if not output:
+        return {"key": "schema_valid", "score": False}
+    template_id = outputs.get("template_id")
+    if template_id is None:
+        return {"key": "schema_valid", "score": False}
+    template = Template.objects.get(pk=template_id)
     return {
         "key": "schema_valid",
-        "score": evaluators.schema_valid(outputs["output"], template),
+        "score": evaluators.schema_valid(output, template),
     }
 
 
 def _eval_sources_grounded(run, example=None):
     outputs = run.outputs or {}
+    output = outputs.get("output")
+    if not output:
+        return {"key": "sources_grounded", "score": False}
     allowed_ids = _allowed_ids(outputs.get("context", {}))
-    score = evaluators.sources_grounded(outputs["output"], allowed_ids)
+    score = evaluators.sources_grounded(output, allowed_ids)
     return {"key": "sources_grounded", "score": score}
 
 
 def _eval_counts_match(run, example=None):
     outputs = run.outputs or {}
-    template = Template.objects.get(pk=outputs["template_id"])
+    output = outputs.get("output")
+    if not output:
+        return {"key": "counts_match", "score": False}
+    template_id = outputs.get("template_id")
+    if template_id is None:
+        return {"key": "counts_match", "score": False}
+    template = Template.objects.get(pk=template_id)
     return {
         "key": "counts_match",
-        "score": evaluators.counts_match(outputs["output"], template),
+        "score": evaluators.counts_match(output, template),
     }
 
 
 def _eval_groundedness(run, example=None):
     outputs = run.outputs or {}
-    score = evaluators.groundedness_judge(outputs["output"], outputs.get("context", {}))
+    output = outputs.get("output")
+    if not output:
+        return {"key": "groundedness", "score": 0.0}
+    score = evaluators.groundedness_judge(output, outputs.get("context", {}))
     return {"key": "groundedness", "score": score}
 
 
