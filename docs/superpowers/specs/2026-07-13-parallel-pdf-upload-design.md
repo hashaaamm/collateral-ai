@@ -73,8 +73,9 @@ independently without disturbing the others.
 ### Orchestration (`onFiles`)
 
 1. On new selection, validate each file (`file.type === "application/pdf"`, as today).
-   Non-PDF files are reported as an error row (or a single top-level error message) and not
-   uploaded.
+   Non-PDF files get a row with `status: "error"` and `error: "Only PDF files are
+   supported."`, and are not uploaded — consistent with how successful/failed uploads are
+   shown, so all feedback lives in one place.
 2. Build one `UploadItem` per valid file with `status: "uploading"`, `progress: 0`, and set
    this as the new items list (replacing any prior batch — rows persist only until the next
    selection).
