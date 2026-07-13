@@ -37,6 +37,10 @@ Rules:
 - Do not add unsupported claims.
 - Respect all word limits (whitespace-separated words).
 - Use only allowed source IDs.
+- image_slots: return EXACTLY the slots in template_image_slots — same slot_ids,
+  same source values, nothing more. Remove any image slot the errors flag as
+  "Unknown image slot". If template_image_slots is empty, return an empty
+  array: "image_slots": [].
 """.strip()
 
 
