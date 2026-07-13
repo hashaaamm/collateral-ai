@@ -1,16 +1,15 @@
 import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowClockwise, ArrowSquareOut, FilePdf, Trash, UploadSimple } from "@phosphor-icons/react";
 
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { StatusPill } from "@/components/status-pill";
+import { useUploads } from "@/components/uploads/use-uploads";
 import { LoadingState } from "@/components/ui/spinner";
 import {
   fetchDocumentViewUrl,
   useCompleteDocument,
   useDeleteDocument,
   useDocuments,
-  uploadDocument,
   type Document,
 } from "@/lib/api/documents";
 
@@ -18,36 +17,15 @@ function num(n: number | null | undefined) {
   return n == null ? "—" : String(n);
 }
 
-type UploadStatus = "uploading" | "processing" | "done" | "error";
-
-type UploadItem = {
-  id: string;
-  name: string;
-  status: UploadStatus;
-  progress: number;
-  error?: string;
-};
-
-function uploadErrorMessage(e: unknown) {
-  return e instanceof Error && e.message === "upload_not_configured"
-    ? "Document upload isn't configured in this environment."
-    : "Upload failed. Try again.";
-}
-
 export function DocumentsTab({ companyId }: { companyId: number }) {
-  const qc = useQueryClient();
   const { data: docs = [], isLoading } = useDocuments(companyId);
   const retry = useCompleteDocument();
   const del = useDeleteDocument();
+  const { enqueue } = useUploads();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [openError, setOpenError] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
   const [openingId, setOpeningId] = useState<number | null>(null);
-
-  function patchUpload(id: string, patch: Partial<UploadItem>) {
-    setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)));
-  }
 
   async function onOpen(d: Document) {
     setOpenError("");
@@ -73,49 +51,6 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
     }
   }
 
-  async function runOne(item: UploadItem, file: File) {
-    try {
-      await uploadDocument({
-        companyId,
-        file,
-        onProgress: (pct) =>
-          patchUpload(item.id, {
-            progress: pct,
-            // Bytes uploaded; the /complete call is now in flight.
-            ...(pct >= 100 ? { status: "processing" } : null),
-          }),
-      });
-      patchUpload(item.id, { status: "done", progress: 100 });
-    } catch (e) {
-      patchUpload(item.id, { status: "error", error: uploadErrorMessage(e) });
-    }
-  }
-
-  async function onFiles(files: FileList | null) {
-    if (!files) return;
-    const selected = Array.from(files);
-    const items: UploadItem[] = selected.map((file) =>
-      file.type === "application/pdf"
-        ? { id: crypto.randomUUID(), name: file.name, status: "uploading", progress: 0 }
-        : {
-            id: crypto.randomUUID(),
-            name: file.name,
-            status: "error",
-            progress: 0,
-            error: "Only PDF files are supported.",
-          },
-    );
-    setUploads(items);
-
-    const runnable = items.flatMap((item, i) =>
-      item.status === "uploading" ? [runOne(item, selected[i])] : [],
-    );
-    if (runnable.length === 0) return;
-
-    await Promise.allSettled(runnable);
-    qc.invalidateQueries({ queryKey: ["documents", companyId] });
-  }
-
   return (
     <div>
       <input
@@ -125,7 +60,9 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
         multiple
         hidden
         aria-label="Upload PDF documents"
-        onChange={(e) => onFiles(e.target.files)}
+        onChange={(e) => {
+          if (e.target.files) enqueue(e.target.files, companyId);
+        }}
       />
       <button
         type="button"
@@ -139,38 +76,6 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
         <span className="text-[11.5px] text-faint">PDF only · max 50 MB</span>
       </button>
 
-      {uploads.length > 0 && (
-        <ul className="mb-4 flex flex-col gap-2">
-          {uploads.map((u) => (
-            <li key={u.id} className="flex flex-col gap-[6px]">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-[9px]">
-                  <FilePdf size={16} className="shrink-0 text-destructive" />
-                  <span className="truncate text-[12.5px] font-medium text-body">{u.name}</span>
-                </div>
-                <span
-                  className={`shrink-0 text-[11.5px] ${
-                    u.status === "error" ? "text-destructive" : "text-faint"
-                  }`}
-                >
-                  {u.status === "uploading" && `uploading ${u.progress}%`}
-                  {u.status === "processing" && "processing"}
-                  {u.status === "done" && "done"}
-                  {u.status === "error" && `failed — ${u.error}`}
-                </span>
-              </div>
-              {u.status !== "error" && (
-                <div className="h-[6px] w-full overflow-hidden rounded-full bg-hairline-soft">
-                  <div
-                    className="h-full bg-brand transition-[width]"
-                    style={{ width: `${u.progress}%` }}
-                  />
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
       {openError && <p className="mb-3 text-[12.5px] text-destructive">{openError}</p>}
 
       {isLoading ? (
