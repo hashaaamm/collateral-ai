@@ -1,4 +1,4 @@
-"""Worker 2 orchestration: claim → retrieve → generate → validate/repair → save.
+"""Worker 2 orchestration: claim → LangGraph pipeline → save.
 
 State machine rules (spec §6.3): claim is its own short transaction so the row
 lock is never held during the multi-minute pipeline; completed/processing
@@ -14,18 +14,13 @@ from django.db import transaction
 from django.utils import timezone
 
 from collateral_ai.documents.processing.embeddings import EmbeddingService
-from collateral_ai.materials.generation.llm import GenerationClient
-from collateral_ai.materials.generation.prompts import SYSTEM_INSTRUCTION
-from collateral_ai.materials.generation.prompts import build_generation_payload
-from collateral_ai.materials.generation.prompts import build_retrieval_query
-from collateral_ai.materials.generation.repair import OutputRepairService
+from collateral_ai.materials.generation.graph import build_generation_graph
+from collateral_ai.materials.generation.model import GenerationModel
 from collateral_ai.materials.generation.retrieval import RetrievalService
-from collateral_ai.materials.generation.schema import build_response_schema
 from collateral_ai.materials.generation.validation import OutputValidator
 from collateral_ai.materials.models import GenerationSource
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.statuses import GenerationStatus
-from collateral_ai.materials.statuses import SourceRole
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +31,11 @@ class MaterialGenerationService:
         *,
         embedder: EmbeddingService | None = None,
         retriever: RetrievalService | None = None,
-        client: GenerationClient | None = None,
-        repairer: OutputRepairService | None = None,
+        model: GenerationModel | None = None,
     ) -> None:
         self.embedder = embedder or EmbeddingService()
         self.retriever = retriever or RetrievalService()
-        self.client = client or GenerationClient()
-        self.repairer = repairer or OutputRepairService(self.client)
+        self.model = model or GenerationModel()
         self.validator = OutputValidator()
         self.default_top_k = int(settings.MATERIAL_RETRIEVAL_TOP_K)
         self.max_repair_attempts = int(settings.MATERIAL_MAX_REPAIR_ATTEMPTS)
@@ -100,107 +93,45 @@ class MaterialGenerationService:
         return material
 
     def _run_pipeline(self, material: MarketingMaterial, *, top_k: int) -> None:
-        template = material.template
-        query_embedding = self.embedder.embed_query(build_retrieval_query(material))
-        sender_chunks = self.retriever.retrieve(
-            company_id=material.sender_company_id,
-            query_embedding=query_embedding,
-            source_role=SourceRole.SENDER,
-            source_prefix="SENDER_SOURCE",
-            top_k=top_k,
+        graph = build_generation_graph(
+            embedder=self.embedder,
+            retriever=self.retriever,
+            model=self.model,
+            validator=self.validator,
+            max_repair_attempts=self.max_repair_attempts,
         )
-        receiver_chunks = self.retriever.retrieve(
-            company_id=material.receiver_company_id,
-            query_embedding=query_embedding,
-            source_role=SourceRole.RECEIVER,
-            source_prefix="RECEIVER_SOURCE",
-            top_k=top_k,
+        final = graph.invoke(
+            {
+                "material_id": material.pk,
+                "material": material,
+                "template": material.template,
+                "top_k": top_k,
+                "attempts": 0,
+            },
         )
-        for role, chunks, company in (
-            ("sender", sender_chunks, material.sender_company),
-            ("receiver", receiver_chunks, material.receiver_company),
-        ):
-            if not chunks:
-                msg = (
-                    f"No processed document chunks for {role} company "
-                    f"{company.name!r} — upload and process documents first."
-                )
-                raise ValueError(msg)
-
-        source_map = {c.source_id: c for c in [*sender_chunks, *receiver_chunks]}
-        allowed_ids = set(source_map)
-        response_schema = build_response_schema(
-            constraints=template.constraints,
-            image_slots=template.image_slots,
-        )
-
-        output = self.client.generate_json(
-            system_instruction=SYSTEM_INSTRUCTION,
-            user_input=build_generation_payload(
-                material=material,
-                sender_chunks=sender_chunks,
-                receiver_chunks=receiver_chunks,
-            ),
-            response_schema=response_schema,
-        )
-        output = self._stamp(output, template, material)
-        result = self._validate(output, template, allowed_ids)
-
-        attempts = 0
-        while not result.is_valid and attempts < self.max_repair_attempts:
-            attempts += 1
-            logger.warning(
-                "validation failed material=%s attempt=%s errors=%s",
-                material.pk,
-                attempts,
-                result.errors,
-            )
-            output = self.repairer.repair(
-                output=output,
-                errors=result.errors,
-                constraints=template.constraints,
-                image_slots=template.image_slots,
-                allowed_source_ids=sorted(allowed_ids),
-                response_schema=response_schema,
-            )
-            output = self._stamp(output, template, material)
-            result = self._validate(output, template, allowed_ids)
-
-        context_snapshot = {
-            "sender_context": [c.to_prompt_dict() for c in sender_chunks],
-            "receiver_context": [c.to_prompt_dict() for c in receiver_chunks],
-        }
-        if not result.is_valid:
-            # Persist the evidence for debugging (JSON tab), then fail loudly.
+        output = final["output"]
+        context_snapshot = final["context_snapshot"]
+        source_map = final["source_map"]
+        if not final["is_valid"]:
             MarketingMaterial.objects.filter(pk=material.pk).update(
                 output_json=output,
-                validation_result=result.to_dict(),
+                validation_result={
+                    "is_valid": False,
+                    "errors": final["validation_errors"],
+                },
                 retrieved_context=context_snapshot,
                 updated_at=timezone.now(),
             )
-            msg = f"Generated output failed validation: {result.errors}"
+            msg = f"Generated output failed validation: {final['validation_errors']}"
             raise ValueError(msg)
 
-        self._save_completed(material, output, result, context_snapshot, source_map)
-
-    def _stamp(self, output: dict, template, material) -> dict:
-        """template_id and theme are template-owned — never trusted from the model.
-
-        cta_link is user-owned — injected deterministically, never via the LLM.
-        """
-        output["template_id"] = template.slug
-        output["theme"] = dict(template.theme)
-        if material.cta_link:
-            output.setdefault("article", {})["cta_url"] = material.cta_link
-        return output
-
-    def _validate(self, output, template, allowed_ids):
-        return self.validator.validate(
+        result = self.validator.validate(
             output=output,
-            constraints=template.constraints,
-            image_slots=template.image_slots,
-            allowed_source_ids=allowed_ids,
+            constraints=material.template.constraints,
+            image_slots=material.template.image_slots,
+            allowed_source_ids=final["allowed_ids"],
         )
+        self._save_completed(material, output, result, context_snapshot, source_map)
 
     @transaction.atomic
     def _save_completed(
