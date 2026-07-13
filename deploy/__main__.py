@@ -183,15 +183,16 @@ repo = gcp.artifactregistry.Repository(
 
 # --- GKE Autopilot cluster (async worker jobs) ----------------------------
 # Autopilot: node pools, VPC-native networking, and Workload Identity are managed/on by
-# default. Private nodes; the control plane keeps a public endpoint restricted to
-# GKE_MASTER_AUTHORIZED_CIDR (the operator's ISP block) for occasional manual kubectl, while
-# the backend (Cloud Run) reaches it privately via the VPC connector (master_global_access).
+# default. Nodes stay private (no public node IPs). The control-plane endpoint is PUBLIC and
+# open to all source IPs (0.0.0.0/0) — access is still gated by GCP IAM + Kubernetes RBAC
+# (kubectl needs `gcloud` auth; the backend uses its Cloud Run SA token). This is a
+# deliberate POC choice: it removes the master-authorized-networks IP allowlist entirely, so
+# there is no operator/CI/Cloud-Run source IP to pin and no flapping-IP failures. Override
+# GKE_MASTER_AUTHORIZED_CIDR to re-restrict the endpoint later if needed.
 # NOTE: Pulumi does NOT create anything inside the cluster — the backend creates the workers
 # namespace + KSA itself (worker_jobs.ensure_worker_namespace), so no cluster API access is
-# needed at deploy time and the flapping-operator-IP bootstrap problem is gone. (A fully
-# private endpoint would additionally require the authorized CIDR to be an RFC1918 range, so
-# it's kept public-restricted here.)
-GKE_MASTER_AUTHORIZED_CIDR = os.environ.get("GKE_MASTER_AUTHORIZED_CIDR", "").strip()
+# needed at deploy time.
+GKE_MASTER_AUTHORIZED_CIDR = os.environ.get("GKE_MASTER_AUTHORIZED_CIDR", "0.0.0.0/0").strip()
 
 cluster = gcp.container.Cluster(
     f"{NAME}-autopilot",
@@ -213,11 +214,9 @@ cluster = gcp.container.Cluster(
         ),
     ),
     master_authorized_networks_config=gcp.container.ClusterMasterAuthorizedNetworksConfigArgs(
-        cidr_blocks=(
-            [gcp.container.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs(
-                cidr_block=GKE_MASTER_AUTHORIZED_CIDR, display_name="operator-ci")]
-            if GKE_MASTER_AUTHORIZED_CIDR else []
-        ),
+        cidr_blocks=[gcp.container.ClusterMasterAuthorizedNetworksConfigCidrBlockArgs(
+            cidr_block=GKE_MASTER_AUTHORIZED_CIDR, display_name="public-iam-gated")],
+        gcp_public_cidrs_access_enabled=True,
     ),
     release_channel=gcp.container.ClusterReleaseChannelArgs(channel="REGULAR"),
     deletion_protection=False,
@@ -387,6 +386,8 @@ pulumi.export("db_instance_connection_name", sql_instance.connection_name)
 pulumi.export("artifact_registry_repo_url", repo.repository_id.apply(
     lambda r: f"{REGION}-docker.pkg.dev/{PROJECT}/{r}"))
 pulumi.export("static_media_bucket_name", bucket.name)
+# Public control-plane endpoint (open to all IPs, IAM-gated). The backend reaches it over the
+# internet via Cloud Run's default egress; kubectl reaches it from anywhere with gcloud auth.
 pulumi.export("gke_cluster_endpoint", cluster.endpoint)
 pulumi.export("gke_cluster_ca_cert", cluster.master_auth.cluster_ca_certificate)
 pulumi.export("gke_worker_namespace", pulumi.Output.from_input("workers"))
