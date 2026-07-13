@@ -10,6 +10,29 @@ from __future__ import annotations
 
 from django.conf import settings
 
+_TYPE_MAP = {
+    "OBJECT": "object",
+    "STRING": "string",
+    "ARRAY": "array",
+    "INTEGER": "integer",
+    "NUMBER": "number",
+    "BOOLEAN": "boolean",
+}
+
+
+def _to_json_schema(node):
+    if isinstance(node, dict):
+        out = {}
+        for key, value in node.items():
+            if key == "type" and isinstance(value, str):
+                out[key] = _TYPE_MAP.get(value, value.lower())
+            else:
+                out[key] = _to_json_schema(value)
+        return out
+    if isinstance(node, list):
+        return [_to_json_schema(item) for item in node]
+    return node
+
 
 class GenerationModel:
     def __init__(self) -> None:
@@ -45,7 +68,13 @@ class GenerationModel:
         from langchain_core.messages import SystemMessage
 
         chat = self._build_chat_model()
-        structured = chat.with_structured_output(response_schema)
+        json_schema = _to_json_schema(response_schema)
+        json_schema.setdefault("title", "MarketingMaterial")
+        json_schema.setdefault(
+            "description",
+            "Structured B2B marketing material output.",
+        )
+        structured = chat.with_structured_output(json_schema)
         result = structured.invoke(
             [
                 SystemMessage(content=system_instruction),
