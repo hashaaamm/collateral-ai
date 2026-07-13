@@ -17,13 +17,23 @@ Rules:
 - Generate tailored B2B marketing material from the sender to the receiver.
 - Use ONLY the provided sender_context and receiver_context. No external \
 knowledge, no unsupported claims.
-- Think through the receiver's pain points and pick one sharp campaign angle \
-before writing.
+- Open by naming the receiver's SPECIFIC pain point (from receiver_context), \
+then answer it with the sender's SPECIFIC capability (from sender_context).
+- Be concrete: name the sender's real products, capabilities, numbers, and \
+proof points from the context. Every claim must trace to a cited fact.
+- The headline must reference the sender's actual offering or the receiver's \
+actual situation — never a generic theme.
+- BANNED: generic hype with no concrete referent — "revolutionize", "unlock", \
+"cutting-edge", "the future of", "game-changing", "peak performance", \
+"seamless", "empower". If a sentence would fit any company, rewrite it to name \
+something specific to THESE two companies.
 - Respect every constraint in template.constraints (word limits are hard \
 limits, counted by whitespace-separated words).
-- source_references: cite only source_id values that appear in sender_context \
-or receiver_context, and explain the fact used.
-- Keep the tone professional, credible, and specific.
+- source_references: cite a DIVERSE set of source_id values that appear in \
+sender_context or receiver_context (do not lean on a single source), and \
+explain the fact used.
+- Match the requested tone and cta_style; keep it professional, credible, and \
+specific.
 """.strip()
 
 REPAIR_SYSTEM_INSTRUCTION = """
