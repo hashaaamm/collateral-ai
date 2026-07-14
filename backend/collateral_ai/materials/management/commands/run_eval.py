@@ -41,6 +41,7 @@ def evaluate_one(material_id: int, *, judge=None) -> dict:
         "schema_valid": evaluators.schema_valid(output, material.template),
         "sources_grounded": evaluators.sources_grounded(output, allowed_ids),
         "counts_match": evaluators.counts_match(output, material.template),
+        "no_inline_citations": evaluators.no_inline_citations(output),
         "groundedness": evaluators.groundedness_judge(output, context, judge=judge),
         "specificity": evaluators.specificity_judge(output, judge=judge),
     }
@@ -106,6 +107,15 @@ def _eval_counts_match(run, example=None):
     }
 
 
+def _eval_no_inline_citations(run, example=None):
+    outputs = run.outputs or {}
+    output = outputs.get("output")
+    if not output:
+        return {"key": "no_inline_citations", "score": False}
+    score = evaluators.no_inline_citations(output)
+    return {"key": "no_inline_citations", "score": score}
+
+
 def _eval_groundedness(run, example=None):
     outputs = run.outputs or {}
     output = outputs.get("output")
@@ -144,6 +154,7 @@ class Command(BaseCommand):
                 _eval_schema_valid,
                 _eval_sources_grounded,
                 _eval_counts_match,
+                _eval_no_inline_citations,
                 _eval_groundedness,
                 _eval_specificity,
             ],

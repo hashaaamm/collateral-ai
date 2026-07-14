@@ -148,3 +148,20 @@ def test_whitespace_only_headline_is_structure_error():
     result = validate(output)
     assert not result.is_valid
     assert categories(result) == {"structure"}
+
+
+def test_inline_citation_token_in_body_section_is_source_error():
+    output = valid_output()
+    output["article"]["body_sections"][1]["text"] = (
+        "Handles 50 million samples per second (RECEIVER_SOURCE_1)."
+    )
+    result = validate(output)
+    assert not result.is_valid
+    assert categories(result) == {"source"}
+    messages = [e["message"] for e in result.errors]
+    assert any("body_sections[2].text" in m for m in messages)
+
+
+def test_clean_article_with_no_inline_citations_passes():
+    result = validate(valid_output())
+    assert result.is_valid, result.errors

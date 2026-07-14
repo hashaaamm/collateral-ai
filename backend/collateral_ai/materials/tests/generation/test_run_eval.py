@@ -54,6 +54,7 @@ def test_evaluate_one_returns_scored_record(monkeypatch):
 
     assert record["schema_valid"] is True
     assert record["sources_grounded"] is True
+    assert record["no_inline_citations"] is True
     assert record["groundedness"] == 0.9
     assert record["specificity"] == 0.9
 
@@ -114,6 +115,10 @@ def test_eval_wrappers_score_failure_when_outputs_missing(outputs):
         "key": "counts_match",
         "score": False,
     }
+    assert run_eval._eval_no_inline_citations(run) == {  # noqa: SLF001
+        "key": "no_inline_citations",
+        "score": False,
+    }
     assert run_eval._eval_groundedness(run) == {  # noqa: SLF001
         "key": "groundedness",
         "score": 0.0,
@@ -137,6 +142,10 @@ def test_eval_wrappers_score_failure_when_output_falsy_but_present():
     }
     assert run_eval._eval_counts_match(run) == {  # noqa: SLF001
         "key": "counts_match",
+        "score": False,
+    }
+    assert run_eval._eval_no_inline_citations(run) == {  # noqa: SLF001
+        "key": "no_inline_citations",
         "score": False,
     }
     assert run_eval._eval_groundedness(run) == {  # noqa: SLF001
