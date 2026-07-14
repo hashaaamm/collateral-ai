@@ -96,23 +96,32 @@ def _is_transient_error(exc: Exception) -> bool:
     return "429" in haystack or "resourceexhausted" in haystack
 
 
-def _default_judge(prompt: str) -> str:
-    from langchain_core.messages import HumanMessage
-    from langchain_google_vertexai import ChatVertexAI
+def _judge_client():
+    from google import genai
 
-    chat = ChatVertexAI(
-        model=settings.MATERIAL_EVAL_JUDGE_MODEL,
+    return genai.Client(
+        vertexai=True,
         project=settings.GOOGLE_CLOUD_PROJECT,
         location=settings.VERTEX_LOCATION,
-        temperature=0.0,
     )
+
+
+def _default_judge(prompt: str) -> str:
+    from google.genai import types
+
     for attempt in range(1, _MAX_JUDGE_ATTEMPTS + 1):
         try:
-            return chat.invoke([HumanMessage(content=prompt)]).content
+            response = _judge_client().models.generate_content(
+                model=settings.MATERIAL_EVAL_JUDGE_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.0),
+            )
         except Exception as exc:  # noqa: BLE001 - judge must never raise
             if attempt >= _MAX_JUDGE_ATTEMPTS or not _is_transient_error(exc):
                 return ""
             time.sleep(2 * attempt)
+        else:
+            return response.text or ""
     return ""
 
 

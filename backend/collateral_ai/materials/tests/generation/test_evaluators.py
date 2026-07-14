@@ -75,20 +75,20 @@ def test_default_judge_retries_on_rate_limit_then_succeeds(monkeypatch):
     calls = {"n": 0}
 
     class _FakeResponse:
-        content = "0.5"
+        text = "0.5"
 
-    class _FakeChat:
-        def invoke(self, _messages):
+    class _FakeModels:
+        def generate_content(self, **_kwargs):
             calls["n"] += 1
             if calls["n"] < 3:
                 msg = "429 ResourceExhausted"
                 raise RuntimeError(msg)
             return _FakeResponse()
 
-    monkeypatch.setattr(
-        "langchain_google_vertexai.ChatVertexAI",
-        lambda **_kwargs: _FakeChat(),
-    )
+    class _FakeClient:
+        models = _FakeModels()
+
+    monkeypatch.setattr(evaluators, "_judge_client", _FakeClient)
 
     result = evaluators._default_judge("prompt")  # noqa: SLF001
 
@@ -99,16 +99,46 @@ def test_default_judge_retries_on_rate_limit_then_succeeds(monkeypatch):
 def test_default_judge_gives_up_after_max_attempts(monkeypatch):
     monkeypatch.setattr(evaluators.time, "sleep", lambda _seconds: None)
 
-    class _FakeChat:
-        def invoke(self, _messages):
+    class _FakeModels:
+        def generate_content(self, **_kwargs):
             msg = "429 rate limited"
             raise RuntimeError(msg)
 
-    monkeypatch.setattr(
-        "langchain_google_vertexai.ChatVertexAI",
-        lambda **_kwargs: _FakeChat(),
-    )
+    class _FakeClient:
+        models = _FakeModels()
+
+    monkeypatch.setattr(evaluators, "_judge_client", _FakeClient)
 
     result = evaluators._default_judge("prompt")  # noqa: SLF001
 
     assert result == ""
+
+
+def test_default_judge_succeeds_without_retry(monkeypatch):
+    sleep_calls = {"n": 0}
+    monkeypatch.setattr(
+        evaluators.time,
+        "sleep",
+        lambda _seconds: sleep_calls.__setitem__("n", sleep_calls["n"] + 1),
+    )
+
+    calls = {"n": 0}
+
+    class _FakeResponse:
+        text = "0.9"
+
+    class _FakeModels:
+        def generate_content(self, **_kwargs):
+            calls["n"] += 1
+            return _FakeResponse()
+
+    class _FakeClient:
+        models = _FakeModels()
+
+    monkeypatch.setattr(evaluators, "_judge_client", _FakeClient)
+
+    result = evaluators._default_judge("prompt")  # noqa: SLF001
+
+    assert result == "0.9"
+    assert calls["n"] == 1
+    assert sleep_calls["n"] == 0
