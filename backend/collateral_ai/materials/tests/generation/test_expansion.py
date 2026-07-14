@@ -5,8 +5,8 @@ import pytest
 from collateral_ai.documents.models import DocumentChunk
 from collateral_ai.documents.tests.factories import DocumentChunkFactory
 from collateral_ai.documents.tests.factories import DocumentFactory
-from collateral_ai.materials.generation.expansion import NeighborExpander
 from collateral_ai.materials.generation.expansion import TABLE_PREFIX
+from collateral_ai.materials.generation.expansion import NeighborExpander
 from collateral_ai.materials.generation.expansion import stitch
 
 
@@ -103,7 +103,11 @@ def test_expand_never_crosses_documents_or_chunk_types():
 def test_expand_ignores_image_captions():
     doc = DocumentFactory()
     caps = [
-        DocumentChunkFactory(document=doc, chunk_type="image_caption", content=f"cap{i}")
+        DocumentChunkFactory(
+            document=doc,
+            chunk_type="image_caption",
+            content=f"cap{i}",
+        )
         for i in range(3)
     ]
     assert NeighborExpander(window=1).expand([caps[1]]) == {}

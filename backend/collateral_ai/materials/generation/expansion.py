@@ -99,7 +99,10 @@ class NeighborExpander:
             if seed.pk in assignment
         }
 
-    def _ordered_ids(self, seeds: list[DocumentChunk]) -> dict[tuple[int, str], list[int]]:
+    def _ordered_ids(
+        self,
+        seeds: list[DocumentChunk],
+    ) -> dict[tuple[int, str], list[int]]:
         keys = {
             (seed.document_id, seed.chunk_type)
             for seed in seeds
