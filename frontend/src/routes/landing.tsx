@@ -1086,8 +1086,7 @@ function Footer() {
   return (
     <footer className="border-t border-white/[.08] bg-ink px-6 py-[26px]">
       <div className="mx-auto flex max-w-[1024px] flex-wrap items-center justify-between gap-4 text-[12.5px] text-subtext">
-        <span>© 2026 Collateral AI · MVP</span>
-        <span className="font-mono text-[11px]">grounded · validated · delivered</span>
+        <span>© 2026 Collateral AI</span>
       </div>
     </footer>
   );
