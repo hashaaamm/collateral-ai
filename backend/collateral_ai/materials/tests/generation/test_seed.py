@@ -34,3 +34,13 @@ def test_build_golden_materials_uses_real_nonzero_embeddings():
     chunk = DocumentChunk.objects.first()
     assert chunk is not None
     assert any(value != 0.0 for value in chunk.embedding)
+
+
+@pytest.mark.django_db
+def test_build_golden_materials_groups_chunks_and_sets_summaries():
+    seed.build_golden_materials(embedder=_FakeEmbedder())
+    material = MarketingMaterial.objects.exclude(title__icontains="sparse").first()
+    chunks = DocumentChunk.objects.filter(company=material.sender_company)
+    assert chunks.count() >= 3
+    assert len({c.document_id for c in chunks}) == 1
+    assert chunks.first().document.summary != ""
