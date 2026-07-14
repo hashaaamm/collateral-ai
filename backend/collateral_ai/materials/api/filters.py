@@ -12,7 +12,10 @@ class MaterialFilter(df.FilterSet):
     behavior, instead of becoming a 400.
     """
 
-    company = df.NumberFilter(method="filter_company")
+    company = df.NumberFilter(
+        method="filter_company",
+        help_text="Sender OR receiver company id",
+    )
     sender = df.NumberFilter(field_name="sender_company_id")
     receiver = df.NumberFilter(field_name="receiver_company_id")
     generation_status = df.CharFilter()
