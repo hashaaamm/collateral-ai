@@ -291,8 +291,13 @@ SOCIALACCOUNT_FORMS = {"signup": "collateral_ai.users.forms.UserSocialSignupForm
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.SessionAuthentication",
+        # TokenAuthentication first so its `authenticate_header` (WWW-Authenticate:
+        # Token) drives the failure status: DRF derives the code from the *first*
+        # authenticator, and SessionAuthentication returns no header — which would
+        # downgrade every auth failure (missing OR invalid token) to 403. The SPA
+        # relies on a genuine 401 to detect session loss and redirect to login.
         "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

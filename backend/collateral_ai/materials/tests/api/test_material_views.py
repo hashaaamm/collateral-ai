@@ -51,7 +51,7 @@ def create_body(sender, receiver, template) -> dict:
 
 
 def test_list_requires_auth():
-    assert APIClient().get(URL).status_code == HTTPStatus.FORBIDDEN
+    assert APIClient().get(URL).status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_create_queues_and_triggers(auth_client):

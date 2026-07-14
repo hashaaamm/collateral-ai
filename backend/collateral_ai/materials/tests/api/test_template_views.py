@@ -45,7 +45,7 @@ def valid_body() -> dict:
 
 
 def test_list_requires_auth():
-    assert APIClient().get(URL).status_code == HTTPStatus.FORBIDDEN
+    assert APIClient().get(URL).status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_list_returns_seed_first(auth_client):

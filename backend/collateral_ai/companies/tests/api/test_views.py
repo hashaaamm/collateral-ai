@@ -21,7 +21,7 @@ def auth_client() -> APIClient:
 
 
 def test_list_requires_auth():
-    assert APIClient().get("/api/companies/").status_code == HTTPStatus.FORBIDDEN
+    assert APIClient().get("/api/companies/").status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_list_returns_companies(auth_client):
@@ -200,6 +200,6 @@ def test_company_list_includes_last_updated(auth_client):
 def test_patch_and_delete_require_auth():
     company = CompanyFactory()
     patch_resp = APIClient().patch(f"/api/companies/{company.pk}/", {}, format="json")
-    assert patch_resp.status_code == HTTPStatus.FORBIDDEN
+    assert patch_resp.status_code == HTTPStatus.UNAUTHORIZED
     delete_resp = APIClient().delete(f"/api/companies/{company.pk}/")
-    assert delete_resp.status_code == HTTPStatus.FORBIDDEN
+    assert delete_resp.status_code == HTTPStatus.UNAUTHORIZED
