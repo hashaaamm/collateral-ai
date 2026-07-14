@@ -82,7 +82,7 @@ class MaterialGenerationService:
             claimable = {GenerationStatus.QUEUED, GenerationStatus.FAILED}
             if not force and material.generation_status not in claimable:
                 # Duplicate execution racing a running job, or an already-done
-                # row: skip quietly (exit 0) so Cloud Run doesn't retry.
+                # row: skip quietly (exit 0) so the K8s Job doesn't retry.
                 logger.info(
                     "skipping material=%s status=%s (use --force to override)",
                     material_id,

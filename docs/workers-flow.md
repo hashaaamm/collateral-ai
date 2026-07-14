@@ -43,7 +43,7 @@ flowchart TD
     EM --> SV["_save_chunks: replace DocumentChunks (atomic)"]
     SV --> SM["_summarize: per-doc summary (best-effort)"]
     SM --> FIN["_finish: status=PROCESSED + counts"]
-    START_ -. "any step raises" .-> FAIL["_fail: status=FAILED + error_message, re-raise"]
+    DL -. "any step raises" .-> FAIL["_fail: status=FAILED + error_message, re-raise"]
 ```
 
 ## Generation — `manage.py generate_material --material-id N`
