@@ -151,6 +151,7 @@ All env-overridable via `base.py`, following existing naming:
 | Setting | Default | Purpose |
 |---|---|---|
 | `MATERIAL_NEIGHBOR_WINDOW` | `1` | chunks each side of a seed; `0` restores today's behavior |
+| `MATERIAL_INCLUDE_DOC_SUMMARIES` | `true` | include document summaries in the payload; `false` for eval A/B and rollback |
 | `DOCUMENT_SUMMARY_MODEL` | `gemini-2.5-flash` | summarizer model |
 | `DOCUMENT_SUMMARY_INPUT_MAX_WORDS` | `20000` | cap on summarizer input |
 | `DOCUMENT_SUMMARY_MAX_WORDS` | `150` | target summary length |

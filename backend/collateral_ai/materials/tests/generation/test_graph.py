@@ -1,8 +1,10 @@
+import json
 from dataclasses import dataclass
 from unittest.mock import MagicMock
 
 import pytest
 
+from collateral_ai.documents.tests.factories import DocumentFactory
 from collateral_ai.materials.generation.graph import build_generation_graph
 from collateral_ai.materials.generation.validation import OutputValidator
 
@@ -259,3 +261,72 @@ def test_graph_stamps_image_slots_from_template_with_slots():
         {"slot_id": "hero_image", "source": "generated_placeholder", "description": ""},
         {"slot_id": "sender_logo", "source": "sender", "description": ""},
     ]
+
+
+def _graph(embedder, retriever, model, validator):
+    return build_generation_graph(
+        embedder=embedder,
+        retriever=retriever,
+        model=model,
+        validator=validator,
+        max_repair_attempts=2,
+    )
+
+
+@pytest.mark.django_db
+def test_graph_passes_document_summaries_to_generation():
+    doc = DocumentFactory(file_name="sender.pdf", summary="Sender doc summary.")
+    tmpl = _template()
+    material = _material(tmpl)
+    model = MagicMock()
+    model.generate_structured.return_value = _valid_output()
+    embedder, retriever, validator = _services(model)
+    retriever.retrieve.side_effect = lambda **kw: (
+        [FakeChunk(source_id="SENDER_SOURCE_1", document_id=doc.pk)]
+        if kw["source_role"] == "sender"
+        else [
+            FakeChunk(
+                source_id="RECEIVER_SOURCE_1",
+                source_role="receiver",
+                document_id=doc.pk,
+            ),
+        ]
+    )
+    final = _graph(embedder, retriever, model, validator).invoke(
+        _initial_state(tmpl, material),
+    )
+    payload = json.loads(
+        model.generate_structured.call_args_list[0].kwargs["user_input"],
+    )
+    expected = [{"file_name": "sender.pdf", "summary": "Sender doc summary."}]
+    assert payload["sender_document_summaries"] == expected
+    assert final["context_snapshot"]["sender_document_summaries"] == expected
+
+
+@pytest.mark.django_db
+def test_graph_summaries_disabled_by_setting(settings):
+    settings.MATERIAL_INCLUDE_DOC_SUMMARIES = False
+    doc = DocumentFactory(file_name="sender.pdf", summary="Sender doc summary.")
+    tmpl = _template()
+    material = _material(tmpl)
+    model = MagicMock()
+    model.generate_structured.return_value = _valid_output()
+    embedder, retriever, validator = _services(model)
+    retriever.retrieve.side_effect = lambda **kw: (
+        [FakeChunk(source_id="SENDER_SOURCE_1", document_id=doc.pk)]
+        if kw["source_role"] == "sender"
+        else [
+            FakeChunk(
+                source_id="RECEIVER_SOURCE_1",
+                source_role="receiver",
+                document_id=doc.pk,
+            ),
+        ]
+    )
+    _graph(embedder, retriever, model, validator).invoke(
+        _initial_state(tmpl, material),
+    )
+    payload = json.loads(
+        model.generate_structured.call_args_list[0].kwargs["user_input"],
+    )
+    assert "sender_document_summaries" not in payload
