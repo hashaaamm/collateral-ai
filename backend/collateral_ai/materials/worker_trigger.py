@@ -30,6 +30,6 @@ def trigger_generation(material) -> str:
         args=["manage.py", "generate_material", "--material-id", str(material.pk)],
         backoff_limit=0,
         active_deadline_seconds=600,
-        cpu="1",
-        memory="1Gi",
+        cpu="500m",
+        memory="512Mi",
     )
