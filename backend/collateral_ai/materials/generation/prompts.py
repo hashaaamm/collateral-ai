@@ -17,6 +17,10 @@ Rules:
 - Generate tailored B2B marketing material from the sender to the receiver.
 - Use ONLY the provided sender_context and receiver_context. No external \
 knowledge, no unsupported claims.
+- sender_document_summaries / receiver_document_summaries (when present) are \
+orientation-only background about whole source documents. They carry no \
+source_id and must NEVER be cited — every claim must still trace to a cited \
+source_id from sender_context or receiver_context.
 - Open by naming the receiver's SPECIFIC pain point (from receiver_context), \
 then answer it with the sender's SPECIFIC capability (from sender_context).
 - Be concrete: name the sender's real products, capabilities, numbers, and \
@@ -69,6 +73,8 @@ def build_generation_payload(
     material: MarketingMaterial,
     sender_chunks: list[RetrievedChunk],
     receiver_chunks: list[RetrievedChunk],
+    sender_document_summaries: list[dict] | None = None,
+    receiver_document_summaries: list[dict] | None = None,
 ) -> str:
     template = material.template
     payload = {
@@ -86,6 +92,10 @@ def build_generation_payload(
         "sender_context": [c.to_prompt_dict() for c in sender_chunks],
         "receiver_context": [c.to_prompt_dict() for c in receiver_chunks],
     }
+    if sender_document_summaries:
+        payload["sender_document_summaries"] = sender_document_summaries
+    if receiver_document_summaries:
+        payload["receiver_document_summaries"] = receiver_document_summaries
     return json.dumps(payload, indent=2)
 
 

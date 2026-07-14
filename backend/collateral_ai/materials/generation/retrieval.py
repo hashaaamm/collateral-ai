@@ -8,6 +8,7 @@ from typing import Any
 from django.conf import settings
 from pgvector.django import CosineDistance
 
+from collateral_ai.documents.models import Document
 from collateral_ai.documents.models import DocumentChunk
 from collateral_ai.materials.generation.expansion import NeighborExpander
 
@@ -73,3 +74,17 @@ class RetrievalService:
             )
             for index, chunk in enumerate(chunks, start=1)
         ]
+
+
+def fetch_document_summaries(chunks: list[RetrievedChunk]) -> list[dict[str, str]]:
+    """Distinct contributing documents (rank order) with a non-blank summary."""
+    doc_ids: list[int] = []
+    for chunk in chunks:
+        if chunk.document_id not in doc_ids:
+            doc_ids.append(chunk.document_id)
+    documents = Document.objects.in_bulk(doc_ids)
+    return [
+        {"file_name": doc.file_name, "summary": doc.summary}
+        for doc_id in doc_ids
+        if (doc := documents.get(doc_id)) and doc.summary
+    ]

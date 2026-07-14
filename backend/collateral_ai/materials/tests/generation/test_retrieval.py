@@ -6,6 +6,8 @@ from collateral_ai.companies.tests.factories import CompanyFactory
 from collateral_ai.documents.tests.factories import DocumentChunkFactory
 from collateral_ai.documents.tests.factories import DocumentFactory
 from collateral_ai.materials.generation.retrieval import RetrievalService
+from collateral_ai.materials.generation.retrieval import RetrievedChunk
+from collateral_ai.materials.generation.retrieval import fetch_document_summaries
 from collateral_ai.materials.statuses import SourceRole
 
 pytestmark = pytest.mark.django_db
@@ -116,3 +118,39 @@ def test_retrieve_window_zero_keeps_bare_chunks(settings):
     )
     assert results[0].expanded_content == "seed"
     assert results[0].to_prompt_dict()["content"] == "seed"
+
+
+def _retrieved(document_id):
+    return RetrievedChunk(
+        source_id="SENDER_SOURCE_1",
+        chunk_id=1,
+        document_id=document_id,
+        company_id=1,
+        file_name="f.pdf",
+        page_number=1,
+        chunk_type="text",
+        content="c",
+        relevance_score=0.1,
+        source_role=SourceRole.SENDER,
+    )
+
+
+def test_fetch_document_summaries_distinct_nonblank_only():
+    with_summary = DocumentFactory(file_name="a.pdf", summary="About A.")
+    blank = DocumentFactory(file_name="b.pdf")
+    chunks = [
+        _retrieved(with_summary.pk),
+        _retrieved(blank.pk),
+        _retrieved(with_summary.pk),
+    ]
+    assert fetch_document_summaries(chunks) == [
+        {"file_name": "a.pdf", "summary": "About A."},
+    ]
+
+
+def test_fetch_document_summaries_preserves_rank_order():
+    first = DocumentFactory(file_name="first.pdf", summary="S1")
+    second = DocumentFactory(file_name="second.pdf", summary="S2")
+    chunks = [_retrieved(second.pk), _retrieved(first.pk)]
+    names = [d["file_name"] for d in fetch_document_summaries(chunks)]
+    assert names == ["second.pdf", "first.pdf"]
