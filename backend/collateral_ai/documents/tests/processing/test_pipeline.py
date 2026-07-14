@@ -65,3 +65,14 @@ def test_reprocess_replaces_chunks():
         # the delete-then-recreate replacement, not force-specific behavior.
         DocumentProcessingService().process(doc.id, force=True)
     assert DocumentChunk.objects.filter(document=doc).count() == first
+
+
+def test_chunks_persist_word_offsets():
+    doc = DocumentFactory(status=DocumentStatus.PROCESSING, storage_path="p/x.pdf")
+    p1, p2 = _patches()
+    with p1, p2:
+        DocumentProcessingService().process(doc.id)
+    chunk = DocumentChunk.objects.filter(document=doc, chunk_type="text").first()
+    assert chunk is not None
+    assert chunk.metadata["word_start"] == 0
+    assert chunk.metadata["word_end"] > 0

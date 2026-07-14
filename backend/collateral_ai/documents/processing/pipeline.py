@@ -114,6 +114,8 @@ class DocumentProcessingService:
                         **base,
                         "source": "pdf_text",
                         "chunk_index": c["chunk_index"],
+                        "word_start": c["word_start"],
+                        "word_end": c["word_end"],
                     },
                 }
                 for c in self.chunker.chunk_text(block.text, block.page_number)
@@ -128,6 +130,8 @@ class DocumentProcessingService:
                         **base,
                         "source": "pdf_table",
                         "chunk_index": c["chunk_index"],
+                        "word_start": c["word_start"],
+                        "word_end": c["word_end"],
                     },
                 }
                 for c in self.chunker.chunk_text(
