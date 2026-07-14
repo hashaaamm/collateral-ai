@@ -8,6 +8,7 @@ from collateral_ai.companies import gcs as companies_gcs
 from collateral_ai.companies.models import Company
 from collateral_ai.documents.models import Document
 from collateral_ai.documents.statuses import DocumentStatus
+from collateral_ai.materials import services
 from collateral_ai.materials.models import GenerationSource
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.models import Template
@@ -216,6 +217,9 @@ class MaterialCreateSerializer(serializers.ModelSerializer[MarketingMaterial]):
                 )
                 raise serializers.ValidationError({field: msg})
         return attrs
+
+    def create(self, validated_data: dict) -> MarketingMaterial:
+        return services.create_material(**validated_data)
 
 
 class MaterialUpdateSerializer(serializers.ModelSerializer[MarketingMaterial]):
