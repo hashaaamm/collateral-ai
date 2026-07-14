@@ -68,7 +68,7 @@ def test_logo_url_is_signed_when_configured(auth_client):
 
 def test_logo_upload_url_503_when_unconfigured(auth_client):
     with mock.patch(
-        "collateral_ai.companies.api.views.gcs.is_configured",
+        "collateral_ai.companies.services.gcs.is_configured",
         return_value=False,
     ):
         resp = auth_client.post(
@@ -81,7 +81,7 @@ def test_logo_upload_url_503_when_unconfigured(auth_client):
 
 def test_logo_upload_url_rejects_bad_content_type(auth_client):
     with mock.patch(
-        "collateral_ai.companies.api.views.gcs.is_configured",
+        "collateral_ai.companies.services.gcs.is_configured",
         return_value=True,
     ):
         resp = auth_client.post(
@@ -95,15 +95,15 @@ def test_logo_upload_url_rejects_bad_content_type(auth_client):
 def test_logo_upload_url_returns_signed_put(auth_client):
     with (
         mock.patch(
-            "collateral_ai.companies.api.views.gcs.is_configured",
+            "collateral_ai.companies.services.gcs.is_configured",
             return_value=True,
         ),
         mock.patch(
-            "collateral_ai.companies.api.views.gcs.build_logo_object_path",
+            "collateral_ai.companies.services.gcs.build_logo_object_path",
             return_value="media/companies/logos/x/a.png",
         ),
         mock.patch(
-            "collateral_ai.companies.api.views.gcs.signed_upload_url",
+            "collateral_ai.companies.services.gcs.signed_upload_url",
             return_value="https://signed-put",
         ),
     ):
@@ -164,11 +164,11 @@ def test_delete_removes_company_and_cleans_logo(auth_client):
     company = CompanyFactory(logo="media/companies/logos/x/a.png")
     with (
         mock.patch(
-            "collateral_ai.companies.api.views.gcs.is_configured",
+            "collateral_ai.companies.services.gcs.is_configured",
             return_value=True,
         ),
         mock.patch(
-            "collateral_ai.companies.api.views.gcs.delete_object",
+            "collateral_ai.companies.services.gcs.delete_object",
         ) as delete_object,
     ):
         resp = auth_client.delete(f"/api/companies/{company.pk}/")
@@ -180,7 +180,7 @@ def test_delete_removes_company_and_cleans_logo(auth_client):
 def test_delete_without_logo_skips_cleanup(auth_client):
     company = CompanyFactory(logo="")
     with mock.patch(
-        "collateral_ai.companies.api.views.gcs.delete_object",
+        "collateral_ai.companies.services.gcs.delete_object",
     ) as delete_object:
         resp = auth_client.delete(f"/api/companies/{company.pk}/")
     assert resp.status_code == HTTPStatus.NO_CONTENT

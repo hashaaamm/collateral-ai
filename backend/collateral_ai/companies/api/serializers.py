@@ -38,3 +38,16 @@ class CompanySerializer(serializers.ModelSerializer[Company]):
         if obj.logo and gcs.is_configured():
             return gcs.signed_get_url(obj.logo)
         return None
+
+
+ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
+
+
+class LogoUploadUrlRequestSerializer(serializers.Serializer):
+    filename = serializers.CharField()
+    content_type = serializers.ChoiceField(choices=ALLOWED_LOGO_TYPES)
+
+
+class LogoUploadUrlResponseSerializer(serializers.Serializer):
+    upload_url = serializers.URLField()
+    object_path = serializers.CharField()
