@@ -8,6 +8,7 @@ import {
   SignOut,
   SquaresFour,
   Stack,
+  User,
 } from "@phosphor-icons/react";
 
 import { useCurrentUser } from "@/lib/api/queries";
@@ -23,12 +24,6 @@ const NAV = [
 
 const NAV_BASE =
   "flex items-center gap-[11px] rounded-[9px] px-[10px] py-[9px] text-[13.5px] font-medium";
-
-function initials(name: string | undefined): string {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
-}
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -84,8 +79,8 @@ export function AppShell() {
         <div className="mt-auto p-3">
           <div className="rounded-xl border border-hairline-soft bg-rail p-3">
             <div className="flex items-center gap-[9px]">
-              <div className="flex size-[30px] items-center justify-center rounded-lg bg-brand-tint text-[13px] font-bold text-brand">
-                {initials(user?.name)}
+              <div className="flex size-[30px] items-center justify-center rounded-lg bg-brand-tint text-brand">
+                <User size={17} weight="fill" />
               </div>
               <div className="min-w-0">
                 <div className="truncate text-[13px] font-semibold">
