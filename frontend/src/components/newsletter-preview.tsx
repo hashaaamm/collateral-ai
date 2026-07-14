@@ -33,6 +33,12 @@ export function NewsletterPreview({
     backgroundImage:
       "repeating-linear-gradient(45deg, #ececf0 0 10px, #f6f6f8 10px 20px)",
   };
+  // Hardcoded hero background (placeholder until real hero-image generation lands).
+  // Matches the landing-page preview mock so the two surfaces stay in sync.
+  const heroBackground = {
+    backgroundImage:
+      "radial-gradient(90% 130% at 85% 0%, rgba(177,98,255,.55), transparent 60%), radial-gradient(80% 120% at 10% 100%, rgba(255,90,95,.35), transparent 55%), linear-gradient(120deg, #251243, #632ca6)",
+  };
   const slotCaption = (slotId: string) => {
     const meta = slotMeta.get(slotId);
     return meta ? `${meta.label} · ${meta.spec}` : slotId;
@@ -56,10 +62,7 @@ export function NewsletterPreview({
   return (
     <div className="mx-auto max-w-[460px] overflow-hidden rounded-2xl border border-hairline bg-surface shadow-[0_8px_30px_-12px_rgba(20,20,40,0.25)]">
       {hero && (
-        <div className="relative flex h-[170px] items-end justify-center" style={stripe}>
-          <span className="mb-3 rounded-md bg-surface/90 px-2 py-1 text-[11px] text-mute">
-            {slotCaption(hero.slot_id)}
-          </span>
+        <div className="relative h-[170px]" style={heroBackground}>
           {logoSlots.length > 0 && (
             <div className="absolute left-4 top-4 flex gap-2">{logoChips}</div>
           )}
