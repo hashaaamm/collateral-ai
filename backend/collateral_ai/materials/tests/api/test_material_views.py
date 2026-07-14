@@ -241,6 +241,53 @@ def test_regenerate_resets_output_review_and_sources(auth_client):
     assert not GenerationSource.objects.filter(material=material).exists()
 
 
+def test_regenerate_applies_new_prompt(auth_client):
+    material = MarketingMaterialFactory(
+        generation_status=GenerationStatus.COMPLETED,
+        prompt="old prompt",
+    )
+    with mock.patch(TRIGGER, return_value="") as trigger:
+        resp = auth_client.post(
+            f"{URL}{material.pk}/regenerate/",
+            {"prompt": "new prompt"},
+            format="json",
+        )
+    assert resp.status_code == HTTPStatus.ACCEPTED
+    trigger.assert_called_once()
+    material.refresh_from_db()
+    assert material.prompt == "new prompt"
+    assert material.generation_status == GenerationStatus.QUEUED
+
+
+def test_regenerate_without_prompt_keeps_stored_prompt(auth_client):
+    material = MarketingMaterialFactory(
+        generation_status=GenerationStatus.COMPLETED,
+        prompt="keep me",
+    )
+    with mock.patch(TRIGGER, return_value=""):
+        resp = auth_client.post(f"{URL}{material.pk}/regenerate/")
+    assert resp.status_code == HTTPStatus.ACCEPTED
+    material.refresh_from_db()
+    assert material.prompt == "keep me"
+
+
+def test_regenerate_rejects_blank_prompt(auth_client):
+    material = MarketingMaterialFactory(
+        generation_status=GenerationStatus.COMPLETED,
+        prompt="old prompt",
+    )
+    with mock.patch(TRIGGER) as trigger:
+        resp = auth_client.post(
+            f"{URL}{material.pk}/regenerate/",
+            {"prompt": ""},
+            format="json",
+        )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    trigger.assert_not_called()
+    material.refresh_from_db()
+    assert material.prompt == "old prompt"
+
+
 def test_delete_material(auth_client):
     material = MarketingMaterialFactory()
     GenerationSourceFactory(material=material)

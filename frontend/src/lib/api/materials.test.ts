@@ -65,6 +65,18 @@ describe("regenerateMaterial / deleteMaterial", () => {
     });
   });
 
+  it("POSTs an edited prompt when provided", async () => {
+    const post = vi.spyOn(api, "POST").mockResolvedValue({
+      data: { id: 9, generation_status: "queued" },
+      error: undefined,
+    } as never);
+    await regenerateMaterial(9, "new prompt");
+    expect(post).toHaveBeenCalledWith("/api/materials/{id}/regenerate/", {
+      params: { path: { id: 9 } },
+      body: { prompt: "new prompt" },
+    });
+  });
+
   it("DELETEs the material", async () => {
     const del = vi
       .spyOn(api, "DELETE")

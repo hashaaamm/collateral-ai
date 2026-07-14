@@ -136,9 +136,14 @@ export function useUpdateMaterial(id: number) {
   });
 }
 
-export async function regenerateMaterial(id: number): Promise<MaterialDetail> {
+export async function regenerateMaterial(
+  id: number,
+  prompt?: string,
+): Promise<MaterialDetail> {
   const { data, error } = await api.POST("/api/materials/{id}/regenerate/", {
     params: { path: { id } },
+    // Omit the body when the prompt is unchanged so we re-run with the stored one.
+    ...(prompt !== undefined ? { body: { prompt } } : {}),
   });
   if (error || !data) throw error ?? new Error("regenerate_failed");
   return data as MaterialDetail;
@@ -147,7 +152,7 @@ export async function regenerateMaterial(id: number): Promise<MaterialDetail> {
 export function useRegenerateMaterial(id: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => regenerateMaterial(id),
+    mutationFn: (prompt?: string) => regenerateMaterial(id, prompt),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["materials"] });
       qc.invalidateQueries({ queryKey: ["materials", id] });

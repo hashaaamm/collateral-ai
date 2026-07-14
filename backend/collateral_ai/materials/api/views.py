@@ -28,6 +28,7 @@ from collateral_ai.materials.worker_trigger import trigger_generation
 from .serializers import MaterialCreateSerializer
 from .serializers import MaterialDetailSerializer
 from .serializers import MaterialListSerializer
+from .serializers import MaterialRegenerateSerializer
 from .serializers import MaterialUpdateSerializer
 from .serializers import TemplateSerializer
 
@@ -156,7 +157,7 @@ class MaterialViewSet(
                 )
 
     @extend_schema(
-        request=None,
+        request=MaterialRegenerateSerializer,
         responses={
             202: MaterialDetailSerializer,
             409: OpenApiResponse(description="Generation already in progress"),
@@ -168,6 +169,9 @@ class MaterialViewSet(
         # the unlocked queryset; the locked re-fetch below guards the actual
         # read-modify-write against a concurrent worker completion.
         material = self.get_object()
+        body = MaterialRegenerateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        new_prompt = body.validated_data.get("prompt")
         with transaction.atomic():
             material = MarketingMaterial.objects.select_for_update().get(
                 pk=material.pk,
@@ -182,6 +186,10 @@ class MaterialViewSet(
                     {"detail": "Generation is already in progress."},
                     status=status.HTTP_409_CONFLICT,
                 )
+            # Apply an edited prompt in the same locked txn so the row that gets
+            # re-queued is the one the new prompt will generate from.
+            if new_prompt is not None:
+                material.prompt = new_prompt
             material.generation_status = GenerationStatus.QUEUED
             material.review_status = ReviewStatus.PENDING
             material.output_json = None

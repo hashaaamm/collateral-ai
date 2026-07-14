@@ -232,3 +232,13 @@ class MaterialUpdateSerializer(serializers.ModelSerializer[MarketingMaterial]):
             msg = "Review status can only change once generation is completed."
             raise serializers.ValidationError(msg)
         return value
+
+
+class MaterialRegenerateSerializer(serializers.Serializer):
+    """Body for the ``regenerate`` action.
+
+    ``prompt`` is optional: omit it to re-run with the stored prompt, or pass a
+    new one to edit-and-regenerate in a single request (no separate PATCH).
+    """
+
+    prompt = serializers.CharField(required=False, allow_blank=False)
