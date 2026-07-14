@@ -18,9 +18,7 @@ def test_create_logo_upload_url_raises_when_unconfigured():
         pytest.raises(StorageNotConfiguredError) as excinfo,
     ):
         services.create_logo_upload_url(filename="a.png", content_type="image/png")
-    assert str(excinfo.value) == (
-        "Logo upload is not configured in this environment."
-    )
+    assert str(excinfo.value) == ("Logo upload is not configured in this environment.")
 
 
 def test_create_logo_upload_url_returns_url_and_path():

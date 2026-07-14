@@ -91,7 +91,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Signed GET URL so the browser can open the stored PDF (spec §5.3). */
         get: operations["companies_documents_view_url_retrieve"];
         put?: never;
         post?: never;
@@ -354,29 +353,36 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
-        DocumentCreateRequest: {
+        /** @description Body for reserving an upload: name + type only, no file bytes. */
+        DocumentCreate: {
             file_name: string;
-            content_type: string;
+            content_type: components["schemas"]["DocumentCreateContentTypeEnum"];
         };
-        DocumentCreateResponse: {
-            id: number;
-            company: number;
-            file_name: string;
-            content_type: string;
-            status: string;
-            page_count: number | null;
-            chunks_count: number;
-            tables_count: number;
-            images_count: number;
-            error_message: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uri */
-            upload_url: string;
-        };
+        /**
+         * @description * `application/pdf` - application/pdf
+         * @enum {string}
+         */
+        DocumentCreateContentTypeEnum: "application/pdf";
         DocumentViewUrl: {
             /** Format: uri */
             url: string;
+        };
+        /** @description 201 body for create: the reserved row plus its signed PUT URL. */
+        DocumentWithUploadUrl: {
+            readonly id: number;
+            readonly company: number;
+            file_name: string;
+            content_type: string;
+            readonly status: components["schemas"]["StatusEnum"];
+            readonly page_count: number | null;
+            readonly chunks_count: number;
+            readonly tables_count: number;
+            readonly images_count: number;
+            readonly error_message: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uri */
+            upload_url: string;
         };
         GenerationSource: {
             readonly id: number;
@@ -396,14 +402,22 @@ export interface components {
          * @enum {string}
          */
         GenerationStatusEnum: "queued" | "processing" | "completed" | "failed";
-        LogoUploadUrl: {
+        LogoUploadUrlRequest: {
+            filename: string;
+            content_type: components["schemas"]["LogoUploadUrlRequestContentTypeEnum"];
+        };
+        /**
+         * @description * `image/png` - image/png
+         *     * `image/jpeg` - image/jpeg
+         *     * `image/webp` - image/webp
+         *     * `image/svg+xml` - image/svg+xml
+         * @enum {string}
+         */
+        LogoUploadUrlRequestContentTypeEnum: "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml";
+        LogoUploadUrlResponse: {
             /** Format: uri */
             upload_url: string;
             object_path: string;
-        };
-        LogoUploadUrlRequest: {
-            filename: string;
-            content_type: string;
         };
         MaterialCreate: {
             readonly id: number;
@@ -660,9 +674,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DocumentCreateRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["DocumentCreateRequest"];
-                "multipart/form-data": components["schemas"]["DocumentCreateRequest"];
+                "application/json": components["schemas"]["DocumentCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["DocumentCreate"];
+                "multipart/form-data": components["schemas"]["DocumentCreate"];
             };
         };
         responses: {
@@ -671,7 +685,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentCreateResponse"];
+                    "application/json": components["schemas"]["DocumentWithUploadUrl"];
                 };
             };
         };
@@ -886,7 +900,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LogoUploadUrl"];
+                    "application/json": components["schemas"]["LogoUploadUrlResponse"];
                 };
             };
         };
@@ -913,7 +927,6 @@ export interface operations {
     materials_list: {
         parameters: {
             query?: {
-                /** @description Sender OR receiver company id */
                 company?: number;
                 generation_status?: string;
                 receiver?: number;
