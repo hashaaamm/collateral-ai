@@ -150,6 +150,14 @@ def test_list_status_and_search_filters(auth_client):
     assert [m["id"] for m in resp.json()] == [done.pk]
 
 
+def test_list_rejects_non_numeric_company_filter(auth_client):
+    # Approved wire deviation: garbage numeric filters are now a 400 instead
+    # of being silently ignored (which returned the full unfiltered list).
+    MarketingMaterialFactory()
+    resp = auth_client.get(URL, {"sender": "abc"})
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
 def test_detail_includes_template_sources_and_companies(auth_client):
     material = MarketingMaterialFactory()
     source = GenerationSourceFactory(material=material)

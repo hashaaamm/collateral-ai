@@ -1,8 +1,6 @@
-from django.db.models import Q
-from drf_spectacular.utils import OpenApiParameter
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
-from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters
 from rest_framework import status
 from rest_framework.decorators import action
@@ -18,27 +16,13 @@ from collateral_ai.materials import services
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.models import Template
 
+from .filters import MaterialFilter
 from .serializers import MaterialCreateSerializer
 from .serializers import MaterialDetailSerializer
 from .serializers import MaterialListSerializer
 from .serializers import MaterialRegenerateSerializer
 from .serializers import MaterialUpdateSerializer
 from .serializers import TemplateSerializer
-
-LIST_FILTER_PARAMS = [
-    OpenApiParameter("company", int, description="Sender OR receiver company id"),
-    OpenApiParameter("sender", int),
-    OpenApiParameter("receiver", int),
-    OpenApiParameter("generation_status", str),
-    OpenApiParameter("review_status", str),
-]
-
-
-def _int_param(value: str | None) -> int | None:
-    try:
-        return int(value) if value is not None else None
-    except (TypeError, ValueError):
-        return None
 
 
 class TemplateViewSet(
@@ -53,7 +37,6 @@ class TemplateViewSet(
     queryset = Template.objects.all()
 
 
-@extend_schema_view(list=extend_schema(parameters=LIST_FILTER_PARAMS))
 class MaterialViewSet(
     ListModelMixin,
     RetrieveModelMixin,
@@ -68,7 +51,8 @@ class MaterialViewSet(
         "template",
     ).all()
     serializer_class = MaterialDetailSerializer
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_class = MaterialFilter
     search_fields = ["title"]
 
     def get_serializer_class(self):
@@ -79,23 +63,6 @@ class MaterialViewSet(
         if self.action in {"update", "partial_update"}:
             return MaterialUpdateSerializer
         return MaterialDetailSerializer
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        params = self.request.query_params
-        if (company := _int_param(params.get("company"))) is not None:
-            qs = qs.filter(
-                Q(sender_company_id=company) | Q(receiver_company_id=company),
-            )
-        if (sender := _int_param(params.get("sender"))) is not None:
-            qs = qs.filter(sender_company_id=sender)
-        if (receiver := _int_param(params.get("receiver"))) is not None:
-            qs = qs.filter(receiver_company_id=receiver)
-        if generation_status := params.get("generation_status"):
-            qs = qs.filter(generation_status=generation_status)
-        if review_status := params.get("review_status"):
-            qs = qs.filter(review_status=review_status)
-        return qs
 
     @extend_schema(
         request=MaterialCreateSerializer,
