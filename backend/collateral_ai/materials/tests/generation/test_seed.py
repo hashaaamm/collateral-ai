@@ -37,6 +37,25 @@ def test_build_golden_materials_uses_real_nonzero_embeddings():
 
 
 @pytest.mark.django_db
+def test_build_hard_materials_splits_claims_from_qualifiers():
+    entries = seed.build_hard_materials(embedder=_FakeEmbedder())
+    assert entries
+    assert all(entry["expected_facts"] for entry in entries)
+    material = MarketingMaterial.objects.get(pk=entries[0]["material_id"])
+    chunks = list(
+        DocumentChunk.objects.filter(company=material.sender_company).order_by("pk"),
+    )
+    # More chunks than the eval's top_k=3, so retrieval must actually select.
+    assert len(chunks) >= 6
+    assert all("word_start" in (c.metadata or {}) for c in chunks)
+    claim = next(c for c in chunks if "sub-second query responses" in c.content)
+    qualifier = next(c for c in chunks if "180 milliseconds" in c.content)
+    assert claim.pk != qualifier.pk
+    assert claim.document_id == qualifier.document_id
+    assert claim.document.summary != ""
+
+
+@pytest.mark.django_db
 def test_build_golden_materials_groups_chunks_and_sets_summaries():
     seed.build_golden_materials(embedder=_FakeEmbedder())
     material = MarketingMaterial.objects.exclude(title__icontains="sparse").first()

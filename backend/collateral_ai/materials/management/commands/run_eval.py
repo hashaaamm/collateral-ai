@@ -134,6 +134,19 @@ def _eval_specificity(run, example=None):
     return {"key": "specificity", "score": score}
 
 
+def _eval_fact_fidelity(run, example=None):
+    """Overclaiming judge; only meaningful for examples carrying expected_facts."""
+    expected_facts = (getattr(example, "inputs", None) or {}).get("expected_facts")
+    if not expected_facts:
+        return {"key": "fact_fidelity", "score": None, "comment": "no expected_facts"}
+    outputs = run.outputs or {}
+    output = outputs.get("output")
+    if not output:
+        return {"key": "fact_fidelity", "score": 0.0}
+    score = evaluators.fact_fidelity(output, expected_facts)
+    return {"key": "fact_fidelity", "score": score}
+
+
 class Command(BaseCommand):
     help = "Run generation over the golden dataset and upload a scored experiment"
 
@@ -157,6 +170,7 @@ class Command(BaseCommand):
                 _eval_no_inline_citations,
                 _eval_groundedness,
                 _eval_specificity,
+                _eval_fact_fidelity,
             ],
             experiment_prefix=label,
             client=client,

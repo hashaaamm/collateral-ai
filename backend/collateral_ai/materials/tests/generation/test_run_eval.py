@@ -129,6 +129,30 @@ def test_eval_wrappers_score_failure_when_outputs_missing(outputs):
     }
 
 
+class _FakeExample:
+    def __init__(self, inputs):
+        self.inputs = inputs
+
+
+def test_eval_fact_fidelity_skips_without_expected_facts():
+    run = _FakeRun({"output": _valid_output()})
+    result = run_eval._eval_fact_fidelity(  # noqa: SLF001
+        run,
+        _FakeExample({"material_id": 1}),
+    )
+    assert result["key"] == "fact_fidelity"
+    assert result["score"] is None
+
+
+def test_eval_fact_fidelity_scores_zero_when_output_missing():
+    run = _FakeRun({})
+    result = run_eval._eval_fact_fidelity(  # noqa: SLF001
+        run,
+        _FakeExample({"material_id": 1, "expected_facts": ["f"]}),
+    )
+    assert result == {"key": "fact_fidelity", "score": 0.0}
+
+
 def test_eval_wrappers_score_failure_when_output_falsy_but_present():
     run = _FakeRun({"output": {}, "template_id": None, "context": {}})
 

@@ -162,3 +162,27 @@ def specificity_judge(output: dict, *, judge=None) -> float:
     judge = judge or _default_judge
     prompt = _SPECIFICITY_PROMPT.format(article=json.dumps(output.get("article", {})))
     return _parse_score(judge(prompt))
+
+
+_FACT_FIDELITY_PROMPT = """You grade B2B marketing copy for OVERCLAIMING.
+Each expected fact below pairs a claim with the qualifier/limitation that makes it
+honest. For each fact, grade 1 if the article either states the claim together with
+its qualifier OR omits the claim entirely; grade 0 if the article states the claim
+WITHOUT its qualifier (overclaiming). Return ONLY JSON:
+{{"score": <fraction of facts graded 1, number 0..1>}}.
+
+expected_facts: {facts}
+article: {article}
+"""
+
+
+def fact_fidelity(output: dict, expected_facts: list[str], *, judge=None) -> float:
+    """1.0 = no overclaiming against the expected claim+qualifier facts."""
+    if not expected_facts:
+        return 1.0
+    judge = judge or _default_judge
+    prompt = _FACT_FIDELITY_PROMPT.format(
+        facts=json.dumps(expected_facts),
+        article=json.dumps(output.get("article", {})),
+    )
+    return _parse_score(judge(prompt))
