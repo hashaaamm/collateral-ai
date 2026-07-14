@@ -1,7 +1,9 @@
 import pytest
 
 from collateral_ai.documents.models import DocumentChunk
+from collateral_ai.documents.processing.chunking import ChunkingService
 from collateral_ai.materials.generation.eval import seed
+from collateral_ai.materials.generation.eval.hard_scenarios import EXTRA_HARD_SCENARIOS
 from collateral_ai.materials.models import MarketingMaterial
 
 
@@ -63,3 +65,36 @@ def test_build_golden_materials_groups_chunks_and_sets_summaries():
     assert chunks.count() >= 3
     assert len({c.document_id for c in chunks}) == 1
     assert chunks.first().document.summary != ""
+
+
+@pytest.mark.django_db
+def test_build_hard_materials_covers_three_scenarios():
+    entries = seed.build_hard_materials(embedder=_FakeEmbedder())
+    assert len(entries) == 6  # 3 scenarios x 2 templates
+    titles = {MarketingMaterial.objects.get(pk=e["material_id"]).title for e in entries}
+    assert any("Veridian" in t for t in titles)
+    assert any("Kinetiq" in t for t in titles)
+    assert all(len(e["expected_facts"]) == 3 for e in entries)
+
+
+SPLIT_MARKERS = [
+    ("resolves 70 percent of incoming", "near 40 percent"),
+    ("we sign business associate agreements", "Enterprise agreements only"),
+    ("sustains 650 units per hour", "380 to 420 units per hour"),
+    ("six weeks from first steel", "middleware adapter"),
+]
+
+
+@pytest.mark.parametrize(("claim", "qualifier"), SPLIT_MARKERS)
+def test_new_hard_scenarios_split_claims_from_qualifiers(claim, qualifier):
+    block = next(
+        b for s in EXTRA_HARD_SCENARIOS for b in s["sender_blocks"] if claim in b
+    )
+    pieces = ChunkingService().chunk_text(block, 1)
+    claim_chunks = {p["chunk_index"] for p in pieces if claim in p["content"]}
+    qualifier_chunks = {p["chunk_index"] for p in pieces if qualifier in p["content"]}
+    assert claim_chunks, "claim marker not found in any chunk"
+    assert qualifier_chunks, "qualifier marker not found in any chunk"
+    assert claim_chunks.isdisjoint(qualifier_chunks), (
+        f"claim and qualifier share a chunk: {claim_chunks & qualifier_chunks}"
+    )

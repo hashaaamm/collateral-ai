@@ -16,6 +16,7 @@ from collateral_ai.documents.processing.chunking import ChunkingService
 from collateral_ai.documents.processing.embeddings import EmbeddingService
 from collateral_ai.documents.tests.factories import DocumentChunkFactory
 from collateral_ai.documents.tests.factories import DocumentFactory
+from collateral_ai.materials.generation.eval.hard_scenarios import EXTRA_HARD_SCENARIOS
 from collateral_ai.materials.tests.factories import MarketingMaterialFactory
 from collateral_ai.materials.tests.factories import TemplateFactory
 
@@ -517,34 +518,53 @@ def build_hard_materials(*, embedder=None) -> list[dict]:
     """
     embedder = embedder or EmbeddingService()
     entries: list[dict] = []
-    for template in (_template_two_sections(), _template_three_sections_no_slots()):
-        sender = CompanyFactory(name="Merex Analytics")
-        receiver = CompanyFactory(name="Baltic Freight Group")
-        _seed_hard_document(
-            embedder,
-            sender,
-            file_name="Merex Analytics platform brochure.pdf",
-            blocks=[*_HARD_SENDER_BLOCKS, *_HARD_SENDER_DISTRACTORS],
-            summary=_HARD_SENDER_SUMMARY,
-        )
-        _seed_hard_document(
-            embedder,
-            receiver,
-            file_name="Baltic Freight operations review.pdf",
-            blocks=[*_HARD_RECEIVER_BLOCKS, *_HARD_RECEIVER_DISTRACTORS],
-            summary=_HARD_RECEIVER_SUMMARY,
-        )
-        material = MarketingMaterialFactory(
-            title=f"Golden hard: Merex -> Baltic Freight ({template.name})",
-            sender_company=sender,
-            receiver_company=receiver,
-            template=template,
-            prompt=_HARD_PROMPT,
-        )
-        entries.append(
-            {
-                "material_id": material.pk,
-                "expected_facts": list(_HARD_EXPECTED_FACTS),
-            },
-        )
+    merex_scenario = {
+        "sender_name": "Merex Analytics",
+        "receiver_name": "Baltic Freight Group",
+        "sender_file": "Merex Analytics platform brochure.pdf",
+        "receiver_file": "Baltic Freight operations review.pdf",
+        "sender_blocks": [*_HARD_SENDER_BLOCKS, *_HARD_SENDER_DISTRACTORS],
+        "receiver_blocks": [*_HARD_RECEIVER_BLOCKS, *_HARD_RECEIVER_DISTRACTORS],
+        "sender_summary": _HARD_SENDER_SUMMARY,
+        "receiver_summary": _HARD_RECEIVER_SUMMARY,
+        "expected_facts": _HARD_EXPECTED_FACTS,
+        "prompt": _HARD_PROMPT,
+    }
+    for scenario in (merex_scenario, *EXTRA_HARD_SCENARIOS):
+        for template in (
+            _template_two_sections(),
+            _template_three_sections_no_slots(),
+        ):
+            sender = CompanyFactory(name=scenario["sender_name"])
+            receiver = CompanyFactory(name=scenario["receiver_name"])
+            _seed_hard_document(
+                embedder,
+                sender,
+                file_name=scenario["sender_file"],
+                blocks=scenario["sender_blocks"],
+                summary=scenario["sender_summary"],
+            )
+            _seed_hard_document(
+                embedder,
+                receiver,
+                file_name=scenario["receiver_file"],
+                blocks=scenario["receiver_blocks"],
+                summary=scenario["receiver_summary"],
+            )
+            material = MarketingMaterialFactory(
+                title=(
+                    f"Golden hard: {scenario['sender_name']} -> "
+                    f"{scenario['receiver_name']} ({template.name})"
+                ),
+                sender_company=sender,
+                receiver_company=receiver,
+                template=template,
+                prompt=scenario["prompt"],
+            )
+            entries.append(
+                {
+                    "material_id": material.pk,
+                    "expected_facts": list(scenario["expected_facts"]),
+                },
+            )
     return entries
