@@ -31,6 +31,7 @@ class Document(models.Model):
     tables_count = models.PositiveIntegerField(default=0)
     images_count = models.PositiveIntegerField(default=0)
     error_message = models.TextField(blank=True)
+    summary = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

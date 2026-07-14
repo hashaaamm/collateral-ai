@@ -10,10 +10,13 @@ from __future__ import annotations
 from typing import Any
 from typing import TypedDict
 
+from django.conf import settings
+
 from collateral_ai.materials.generation.prompts import REPAIR_SYSTEM_INSTRUCTION
 from collateral_ai.materials.generation.prompts import SYSTEM_INSTRUCTION
 from collateral_ai.materials.generation.prompts import build_generation_payload
 from collateral_ai.materials.generation.prompts import build_repair_payload
+from collateral_ai.materials.generation.retrieval import fetch_document_summaries
 from collateral_ai.materials.generation.schema import build_response_schema
 from collateral_ai.materials.statuses import SourceRole
 
@@ -26,6 +29,8 @@ class GenerationState(TypedDict, total=False):
     query_embedding: list[float]
     sender_chunks: list[Any]
     receiver_chunks: list[Any]
+    sender_document_summaries: list[dict]
+    receiver_document_summaries: list[dict]
     source_map: dict[str, Any]
     allowed_ids: set[str]
     response_schema: dict
@@ -90,6 +95,13 @@ def build_generation_graph(
                     f"{company.name!r} — upload and process documents first."
                 )
                 raise ValueError(msg)
+        include_summaries = bool(settings.MATERIAL_INCLUDE_DOC_SUMMARIES)
+        sender_summaries = (
+            fetch_document_summaries(sender_chunks) if include_summaries else []
+        )
+        receiver_summaries = (
+            fetch_document_summaries(receiver_chunks) if include_summaries else []
+        )
         source_map = {c.source_id: c for c in [*sender_chunks, *receiver_chunks]}
         allowed_ids = set(source_map)
         response_schema = build_response_schema(
@@ -99,11 +111,15 @@ def build_generation_graph(
         context_snapshot = {
             "sender_context": [c.to_prompt_dict() for c in sender_chunks],
             "receiver_context": [c.to_prompt_dict() for c in receiver_chunks],
+            "sender_document_summaries": sender_summaries,
+            "receiver_document_summaries": receiver_summaries,
         }
         return {
             "query_embedding": query_embedding,
             "sender_chunks": sender_chunks,
             "receiver_chunks": receiver_chunks,
+            "sender_document_summaries": sender_summaries,
+            "receiver_document_summaries": receiver_summaries,
             "source_map": source_map,
             "allowed_ids": allowed_ids,
             "response_schema": response_schema,
@@ -117,6 +133,14 @@ def build_generation_graph(
                 material=state["material"],
                 sender_chunks=state["sender_chunks"],
                 receiver_chunks=state["receiver_chunks"],
+                sender_document_summaries=state.get(
+                    "sender_document_summaries",
+                    [],
+                ),
+                receiver_document_summaries=state.get(
+                    "receiver_document_summaries",
+                    [],
+                ),
             ),
             response_schema=state["response_schema"],
         )

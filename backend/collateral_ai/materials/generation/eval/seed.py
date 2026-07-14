@@ -4,7 +4,9 @@ Builds varied templates (different section counts / image slots) across
 three distinct, substantive sender/receiver company pairs, plus an
 adversarial sparse-context case. Golden chunks carry REAL embeddings
 (computed via EmbeddingService) so retrieval against them is meaningful
-instead of matching against zero vectors.
+instead of matching against zero vectors. Each company's facts live in a
+single document with a summary, so neighbor expansion and document
+summaries are exercised by the eval.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from __future__ import annotations
 from collateral_ai.companies.tests.factories import CompanyFactory
 from collateral_ai.documents.processing.embeddings import EmbeddingService
 from collateral_ai.documents.tests.factories import DocumentChunkFactory
+from collateral_ai.documents.tests.factories import DocumentFactory
 from collateral_ai.materials.tests.factories import MarketingMaterialFactory
 from collateral_ai.materials.tests.factories import TemplateFactory
 
@@ -19,6 +22,19 @@ _PAIRS = [
     {
         "sender": "Sentinel Pay",
         "receiver": "Meridian Retail",
+        "sender_summary": (
+            "Sentinel Pay sells a real-time payment-fraud detection API for "
+            "online merchants: 38ms p99 risk scoring, nightly retraining on 4 "
+            "billion transactions, SOC 2 Type II and PCI-DSS Level 1 "
+            "certification, and prebuilt connectors for Stripe, Adyen, and "
+            "Braintree."
+        ),
+        "receiver_summary": (
+            "Meridian Retail is an EMEA retailer processing 2.1M card "
+            "transactions daily; its fraud tool's 4.2% false-positive rate "
+            "costs $3M/yr in declined orders, and a Q3 APAC expansion needs "
+            "multi-region latency under 50ms."
+        ),
         "sender_facts": [
             "Sentinel Pay's fraud API returns a risk score in 38ms at p99.",
             "Sentinel Pay is SOC 2 Type II and PCI-DSS Level 1 certified.",
@@ -36,6 +52,17 @@ _PAIRS = [
     {
         "sender": "Nimbus Analytics",
         "receiver": "Harborview Logistics",
+        "sender_summary": (
+            "Nimbus Analytics is a cloud data warehouse whose columnar engine "
+            "runs analytical queries 12x faster than Postgres at TB scale, "
+            "with zero-copy cloning of 10TB warehouses in seconds and "
+            "per-second compute billing with 60s autosuspend."
+        ),
+        "receiver_summary": (
+            "Harborview Logistics runs same-day shipping operations slowed by "
+            "a 6-hour nightly ETL and 40-second peak dashboard queries; it "
+            "wants sub-second dashboards for 500 warehouse managers."
+        ),
         "sender_facts": [
             "Nimbus's columnar engine runs analytical queries 12x faster than "
             "Postgres at TB scale.",
@@ -53,6 +80,17 @@ _PAIRS = [
     {
         "sender": "Pulse Observability",
         "receiver": "Cobalt Bank",
+        "sender_summary": (
+            "Pulse Observability is a tracing platform ingesting 5M spans/sec "
+            "with 15-second end-to-end trace latency, anomaly detection that "
+            "cut a customer's MTTR from 45 to 8 minutes, and 30-day "
+            "high-cardinality retention at $0.10/GB."
+        ),
+        "receiver_summary": (
+            "Cobalt Bank operates 1,200 microservices, misses SLA on 3% of "
+            "incidents due to slow root-cause analysis, pages on-call 60 "
+            "times weekly, and must retain audit logs for 7 years."
+        ),
         "sender_facts": [
             "Pulse ingests 5M spans per second with 15-second end-to-end trace "
             "latency.",
@@ -87,9 +125,15 @@ def _template_three_sections_no_slots():
     )
 
 
-def _seed_chunks(embedder, company, facts):
+def _seed_chunks(embedder, company, facts, *, summary=""):
+    document = DocumentFactory(
+        company=company,
+        file_name=f"{company.name} overview.pdf",
+        summary=summary,
+    )
     for i, fact in enumerate(facts, start=1):
         DocumentChunkFactory(
+            document=document,
             company=company,
             content=fact,
             page_number=i,
@@ -106,8 +150,18 @@ def build_golden_materials(*, embedder=None) -> list[int]:
         for template in templates:
             sender = CompanyFactory(name=pair["sender"])
             receiver = CompanyFactory(name=pair["receiver"])
-            _seed_chunks(embedder, sender, pair["sender_facts"])
-            _seed_chunks(embedder, receiver, pair["receiver_facts"])
+            _seed_chunks(
+                embedder,
+                sender,
+                pair["sender_facts"],
+                summary=pair["sender_summary"],
+            )
+            _seed_chunks(
+                embedder,
+                receiver,
+                pair["receiver_facts"],
+                summary=pair["receiver_summary"],
+            )
             material = MarketingMaterialFactory(
                 title=f"Golden {idx}: {pair['sender']} -> {pair['receiver']} "
                 f"({template.name})",
