@@ -54,9 +54,9 @@ Concretely:
    management commands. Services never touch `request`/`Response`.
 4. **Domain errors**: new plain package `collateral_ai/core/` with `core/exceptions.py`
    defining `DomainError(Exception)` carrying `status_code` and `detail`. Concrete errors:
-   - `StorageNotConfigured` → 503
-   - `GenerationInProgress` → 409
-   - `NoStoredFile` → 404
+   - `StorageNotConfiguredError` → 503
+   - `GenerationInProgressError` → 409
+   - `NoStoredFileError` → 404
 
    A custom handler `config/exception_handler.py`, registered as
    `REST_FRAMEWORK["EXCEPTION_HANDLER"]`, renders any `DomainError` as `{"detail": ...}` with
@@ -83,7 +83,7 @@ directly** — still zero business logic in the view.
     on success persist `job_operation_name`.
   - `regenerate_material(material, *, prompt=None) -> MarketingMaterial` — locked re-fetch
     (`select_for_update`), active-and-not-stale check (`STALE_AFTER = 15 min` moves here),
-    raises `GenerationInProgress`, applies optional new prompt, resets generation/review
+    raises `GenerationInProgressError`, applies optional new prompt, resets generation/review
     fields, deletes sources, dispatches, returns refreshed instance.
 - **New `materials/api/filters.py`**: `MaterialFilter` — `company` as a method filter
   (sender OR receiver), `sender`/`receiver` as `NumberFilter`, `generation_status`/
@@ -99,13 +99,13 @@ directly** — still zero business logic in the view.
 
 - **New `documents/services.py`**
   - `create_document_with_upload_url(*, company_id, file_name, content_type)
-    -> tuple[Document, str]` — raises `StorageNotConfigured`; creates the row, builds the
+    -> tuple[Document, str]` — raises `StorageNotConfiguredError`; creates the row, builds the
     object path, saves it, signs the upload URL. (ATOMIC_REQUESTS still guarantees no orphan
     PENDING row if signing raises.)
   - `start_processing(document) -> Document` — status → PROCESSING, clear error, call
     `trigger_processing`; on dispatch failure mark FAILED with the generic message; return
     refreshed instance.
-  - `get_view_url(document) -> str` — raises `StorageNotConfigured` / `NoStoredFile`.
+  - `get_view_url(document) -> str` — raises `StorageNotConfiguredError` / `NoStoredFileError`.
   - `delete_document(document) -> None` — GCS delete when configured + row delete.
 - **Serializers**: `DocumentCreateSerializer` (`file_name` `CharField(max_length=255)`,
   `content_type` `ChoiceField(["application/pdf"])`), `DocumentWithUploadUrlSerializer`
@@ -119,7 +119,7 @@ directly** — still zero business logic in the view.
 ### companies
 
 - **New `companies/services.py`**: `create_logo_upload_url(*, filename, content_type)
-  -> tuple[str, str]` (raises `StorageNotConfigured`; returns `(upload_url, object_path)`),
+  -> tuple[str, str]` (raises `StorageNotConfiguredError`; returns `(upload_url, object_path)`),
   `delete_company(company)` (logo GCS cleanup + delete).
 - **Serializers**: `LogoUploadUrlRequestSerializer` (`filename` `CharField`, `content_type`
   `ChoiceField` over the allowed image types — the allowed-types set moves out of the view),

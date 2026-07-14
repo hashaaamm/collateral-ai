@@ -33,7 +33,7 @@
 - Modify: `backend/config/settings/base.py:292-304` (REST_FRAMEWORK dict)
 
 **Interfaces:**
-- Produces: `collateral_ai.core.exceptions.DomainError(detail: str | None = None)` with attrs `status_code: int`, `detail: str`; subclasses `StorageNotConfigured` (503), `GenerationInProgress` (409, default detail "Generation is already in progress."), `NoStoredFile` (404, default detail "Document has no stored file."). `config.exception_handler.api_exception_handler(exc, context)` renders any `DomainError` as `Response({"detail": exc.detail}, status=exc.status_code)`. Tasks 2–4 raise these from services.
+- Produces: `collateral_ai.core.exceptions.DomainError(detail: str | None = None)` with attrs `status_code: int`, `detail: str`; subclasses `StorageNotConfiguredError` (503), `GenerationInProgressError` (409, default detail "Generation is already in progress."), `NoStoredFileError` (404, default detail "Document has no stored file."). `config.exception_handler.api_exception_handler(exc, context)` renders any `DomainError` as `Response({"detail": exc.detail}, status=exc.status_code)`. Tasks 2–4 raise these from services.
 
 - [ ] **Step 0: Snapshot the pre-refactor OpenAPI schema (baseline for Task 7)**
 
@@ -59,14 +59,14 @@ from http import HTTPStatus
 from rest_framework.exceptions import NotFound
 
 from collateral_ai.core.exceptions import DomainError
-from collateral_ai.core.exceptions import GenerationInProgress
-from collateral_ai.core.exceptions import NoStoredFile
-from collateral_ai.core.exceptions import StorageNotConfigured
+from collateral_ai.core.exceptions import GenerationInProgressError
+from collateral_ai.core.exceptions import NoStoredFileError
+from collateral_ai.core.exceptions import StorageNotConfiguredError
 from config.exception_handler import api_exception_handler
 
 
 def test_domain_error_renders_detail_and_status():
-    exc = StorageNotConfigured("Logo upload is not configured in this environment.")
+    exc = StorageNotConfiguredError("Logo upload is not configured in this environment.")
     resp = api_exception_handler(exc, context={})
     assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
     assert resp.data == {
@@ -75,11 +75,11 @@ def test_domain_error_renders_detail_and_status():
 
 
 def test_domain_error_default_details():
-    assert GenerationInProgress().detail == "Generation is already in progress."
-    assert NoStoredFile().detail == "Document has no stored file."
-    conflict = api_exception_handler(GenerationInProgress(), context={})
+    assert GenerationInProgressError().detail == "Generation is already in progress."
+    assert NoStoredFileError().detail == "Document has no stored file."
+    conflict = api_exception_handler(GenerationInProgressError(), context={})
     assert conflict.status_code == HTTPStatus.CONFLICT
-    missing = api_exception_handler(NoStoredFile(), context={})
+    missing = api_exception_handler(NoStoredFileError(), context={})
     assert missing.status_code == HTTPStatus.NOT_FOUND
 
 
@@ -130,21 +130,21 @@ class DomainError(Exception):
         super().__init__(self.detail)
 
 
-class StorageNotConfigured(DomainError):
+class StorageNotConfiguredError(DomainError):
     """GCS is not configured (no GS_BUCKET_NAME) — feature unavailable."""
 
     status_code = 503
     default_detail = "Storage is not configured in this environment."
 
 
-class GenerationInProgress(DomainError):
+class GenerationInProgressError(DomainError):
     """A fresh generation run is already active for this material."""
 
     status_code = 409
     default_detail = "Generation is already in progress."
 
 
-class NoStoredFile(DomainError):
+class NoStoredFileError(DomainError):
     """The document row exists but no object was ever stored for it."""
 
     status_code = 404
@@ -209,8 +209,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Modify: `backend/collateral_ai/companies/tests/api/test_views.py` (patch targets only)
 
 **Interfaces:**
-- Consumes: `collateral_ai.core.exceptions.StorageNotConfigured` (Task 1).
-- Produces: `companies.services.create_logo_upload_url(*, filename: str, content_type: str) -> tuple[str, str]` returning `(upload_url, object_path)`, raising `StorageNotConfigured`; `companies.services.delete_company(company: Company) -> None`. Serializers `LogoUploadUrlRequestSerializer`, `LogoUploadUrlResponseSerializer`; module constant `ALLOWED_LOGO_TYPES` moves from views.py to serializers.py.
+- Consumes: `collateral_ai.core.exceptions.StorageNotConfiguredError` (Task 1).
+- Produces: `companies.services.create_logo_upload_url(*, filename: str, content_type: str) -> tuple[str, str]` returning `(upload_url, object_path)`, raising `StorageNotConfiguredError`; `companies.services.delete_company(company: Company) -> None`. Serializers `LogoUploadUrlRequestSerializer`, `LogoUploadUrlResponseSerializer`; module constant `ALLOWED_LOGO_TYPES` moves from views.py to serializers.py.
 
 - [ ] **Step 1: Write the failing service tests**
 
@@ -223,7 +223,7 @@ import pytest
 
 from collateral_ai.companies import services
 from collateral_ai.companies.tests.factories import CompanyFactory
-from collateral_ai.core.exceptions import StorageNotConfigured
+from collateral_ai.core.exceptions import StorageNotConfiguredError
 
 pytestmark = pytest.mark.django_db
 
@@ -234,7 +234,7 @@ def test_create_logo_upload_url_raises_when_unconfigured():
             "collateral_ai.companies.services.gcs.is_configured",
             return_value=False,
         ),
-        pytest.raises(StorageNotConfigured) as excinfo,
+        pytest.raises(StorageNotConfiguredError) as excinfo,
     ):
         services.create_logo_upload_url(filename="a.png", content_type="image/png")
     assert str(excinfo.value) == (
@@ -308,14 +308,14 @@ from __future__ import annotations
 
 from collateral_ai.companies import gcs
 from collateral_ai.companies.models import Company
-from collateral_ai.core.exceptions import StorageNotConfigured
+from collateral_ai.core.exceptions import StorageNotConfiguredError
 
 
 def create_logo_upload_url(*, filename: str, content_type: str) -> tuple[str, str]:
     """Return (upload_url, object_path) for a direct browser PUT of a logo."""
     if not gcs.is_configured():
         msg = "Logo upload is not configured in this environment."
-        raise StorageNotConfigured(msg)
+        raise StorageNotConfiguredError(msg)
     object_path = gcs.build_logo_object_path(filename)
     return gcs.signed_upload_url(object_path, content_type), object_path
 
@@ -437,7 +437,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Modify: `backend/collateral_ai/documents/tests/api/test_views.py` (patch targets only)
 
 **Interfaces:**
-- Consumes: `StorageNotConfigured`, `NoStoredFile` (Task 1); `documents.gcs` (`is_configured`, `build_document_object_path(company_id, document_id, filename)`, `signed_upload_url(path, content_type)`, `signed_get_url(path)`, `delete_object(path)`); `documents.worker_trigger.trigger_processing(document)`.
+- Consumes: `StorageNotConfiguredError`, `NoStoredFileError` (Task 1); `documents.gcs` (`is_configured`, `build_document_object_path(company_id, document_id, filename)`, `signed_upload_url(path, content_type)`, `signed_get_url(path)`, `delete_object(path)`); `documents.worker_trigger.trigger_processing(document)`.
 - Produces: `documents.services.create_document_with_upload_url(*, company_id: int, file_name: str, content_type: str) -> tuple[Document, str]`; `documents.services.start_processing(document: Document) -> Document`; `documents.services.get_view_url(document: Document) -> str`; `documents.services.delete_document(document: Document) -> None`. Serializers `DocumentCreateSerializer`, `DocumentWithUploadUrlSerializer`, `DocumentViewUrlSerializer`.
 
 - [ ] **Step 1: Write the failing service tests**
@@ -450,8 +450,8 @@ from unittest import mock
 import pytest
 
 from collateral_ai.companies.tests.factories import CompanyFactory
-from collateral_ai.core.exceptions import NoStoredFile
-from collateral_ai.core.exceptions import StorageNotConfigured
+from collateral_ai.core.exceptions import NoStoredFileError
+from collateral_ai.core.exceptions import StorageNotConfiguredError
 from collateral_ai.documents import services
 from collateral_ai.documents.models import Document
 from collateral_ai.documents.statuses import DocumentStatus
@@ -467,7 +467,7 @@ def test_create_document_raises_when_unconfigured():
             "collateral_ai.documents.services.gcs.is_configured",
             return_value=False,
         ),
-        pytest.raises(StorageNotConfigured) as excinfo,
+        pytest.raises(StorageNotConfiguredError) as excinfo,
     ):
         services.create_document_with_upload_url(
             company_id=company.pk,
@@ -531,7 +531,7 @@ def test_get_view_url_raises_without_stored_file():
             "collateral_ai.documents.services.gcs.is_configured",
             return_value=True,
         ),
-        pytest.raises(NoStoredFile),
+        pytest.raises(NoStoredFileError),
     ):
         services.get_view_url(doc)
 
@@ -572,8 +572,8 @@ import logging
 
 from django.utils import timezone
 
-from collateral_ai.core.exceptions import NoStoredFile
-from collateral_ai.core.exceptions import StorageNotConfigured
+from collateral_ai.core.exceptions import NoStoredFileError
+from collateral_ai.core.exceptions import StorageNotConfiguredError
 from collateral_ai.documents import gcs
 from collateral_ai.documents.models import Document
 from collateral_ai.documents.statuses import DocumentStatus
@@ -599,7 +599,7 @@ def create_document_with_upload_url(
     """
     if not gcs.is_configured():
         msg = "Document upload is not configured in this environment."
-        raise StorageNotConfigured(msg)
+        raise StorageNotConfiguredError(msg)
     doc = Document.objects.create(
         company_id=company_id,
         file_name=file_name,
@@ -642,9 +642,9 @@ def get_view_url(document: Document) -> str:
     """Signed GET URL so the browser can open the stored PDF (spec §5.3)."""
     if not gcs.is_configured():
         msg = "Document viewing is not configured in this environment."
-        raise StorageNotConfigured(msg)
+        raise StorageNotConfiguredError(msg)
     if not document.storage_path:
-        raise NoStoredFile
+        raise NoStoredFileError
     return gcs.signed_get_url(document.storage_path)
 
 
@@ -792,8 +792,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Modify: `backend/collateral_ai/materials/tests/api/test_material_views.py:26` (TRIGGER constant)
 
 **Interfaces:**
-- Consumes: `GenerationInProgress` (Task 1); `materials.worker_trigger.trigger_generation(material) -> str`.
-- Produces: `materials.services.create_material(**validated_data) -> MarketingMaterial`; `materials.services.dispatch_generation(material) -> None`; `materials.services.regenerate_material(material, *, prompt: str | None = None) -> MarketingMaterial` raising `GenerationInProgress`; `materials.services.STALE_AFTER` (moves from views.py).
+- Consumes: `GenerationInProgressError` (Task 1); `materials.worker_trigger.trigger_generation(material) -> str`.
+- Produces: `materials.services.create_material(**validated_data) -> MarketingMaterial`; `materials.services.dispatch_generation(material) -> None`; `materials.services.regenerate_material(material, *, prompt: str | None = None) -> MarketingMaterial` raising `GenerationInProgressError`; `materials.services.STALE_AFTER` (moves from views.py).
 
 - [ ] **Step 1: Write the failing service tests**
 
@@ -806,7 +806,7 @@ from unittest import mock
 import pytest
 from django.utils import timezone
 
-from collateral_ai.core.exceptions import GenerationInProgress
+from collateral_ai.core.exceptions import GenerationInProgressError
 from collateral_ai.materials import services
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.statuses import GenerationStatus
@@ -842,7 +842,7 @@ def test_regenerate_conflicts_while_fresh_run_is_active():
     material = MarketingMaterialFactory(
         generation_status=GenerationStatus.PROCESSING,
     )
-    with pytest.raises(GenerationInProgress):
+    with pytest.raises(GenerationInProgressError):
         services.regenerate_material(material)
 
 
@@ -914,7 +914,7 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
-from collateral_ai.core.exceptions import GenerationInProgress
+from collateral_ai.core.exceptions import GenerationInProgressError
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.statuses import GenerationStatus
 from collateral_ai.materials.statuses import ReviewStatus
@@ -972,7 +972,7 @@ def regenerate_material(
 ) -> MarketingMaterial:
     """Reset a material and re-queue generation; returns the refreshed row.
 
-    Raises GenerationInProgress while a fresh (non-stale) run is active. The
+    Raises GenerationInProgressError while a fresh (non-stale) run is active. The
     locked re-fetch guards the read-modify-write against a concurrent worker
     completion.
     """
@@ -986,7 +986,7 @@ def regenerate_material(
         }
         is_stale = material.updated_at < timezone.now() - STALE_AFTER
         if is_active and not is_stale:
-            raise GenerationInProgress
+            raise GenerationInProgressError
         # Apply an edited prompt in the same locked txn so the row that gets
         # re-queued is the one the new prompt will generate from.
         if prompt is not None:
@@ -1181,7 +1181,7 @@ TRIGGER = "collateral_ai.materials.services.trigger_generation"
 - [ ] **Step 8: Run the app's full test suite**
 
 Run: `just pytest collateral_ai/materials -v`
-Expected: all pass — the regenerate 409 body (`{"detail": "Generation is already in progress."}`) now comes from `GenerationInProgress` via the exception handler, byte-identical.
+Expected: all pass — the regenerate 409 body (`{"detail": "Generation is already in progress."}`) now comes from `GenerationInProgressError` via the exception handler, byte-identical.
 
 - [ ] **Step 9: Commit**
 
