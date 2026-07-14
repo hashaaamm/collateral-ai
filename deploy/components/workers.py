@@ -39,18 +39,13 @@ class WorkerCluster(pulumi.ComponentResource):
                 cluster_secondary_range_name="gke-pods",
                 services_secondary_range_name="gke-services",
             ),
-            private_cluster_config=gcp.container.ClusterPrivateClusterConfigArgs(
-                # Public nodes: worker pods need internet egress (LangSmith trace
-                # export, any non-Google API) and the VPC has no Cloud NAT (a
-                # $0-idle choice). Inbound stays IAM/RBAC-gated — same POC posture
-                # as the public control-plane endpoint below.
-                enable_private_nodes=False,
-                enable_private_endpoint=False,
-                master_ipv4_cidr_block=cfg.gke_master_cidr,
-                master_global_access_config=gcp.container.ClusterPrivateClusterConfigMasterGlobalAccessConfigArgs(
-                    enabled=True,
-                ),
-            ),
+            # Public nodes (no private_cluster_config): worker pods need internet
+            # egress (LangSmith trace export, any non-Google API) and the VPC has
+            # no Cloud NAT (a $0-idle choice). Public-node clusters use Private
+            # Service Connect for the control plane, which rejects
+            # master_ipv4_cidr_block — so the whole private block is omitted.
+            # Inbound stays IAM/RBAC-gated — same POC posture as the public
+            # control-plane endpoint below.
             # Public control-plane endpoint, gated by GCP IAM + Kubernetes RBAC rather than a
             # source-IP allowlist. Defaults to 0.0.0.0/0 so the Cloud Run backend (dynamic egress)
             # and kubectl can reach it with auth — no operator/CI/Cloud-Run IP to pin, no
