@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collateral_ai.materials.generation.validation import OutputValidator
+from collateral_ai.materials.generation.validation import trim_to_word_limits
 
 CONSTRAINTS = {
     "headline_max_words": 5,
@@ -165,3 +166,99 @@ def test_inline_citation_token_in_body_section_is_source_error():
 def test_clean_article_with_no_inline_citations_passes():
     result = validate(valid_output())
     assert result.is_valid, result.errors
+
+
+def _overlimit_output():
+    return {
+        "article": {
+            "headline": "Short headline",
+            "subheadline": "Sub",
+            "body_sections": [
+                {
+                    "title": "T",
+                    "text": "First sentence stays. " + "word " * 90 + "ends here.",
+                },
+            ],
+            "cta": "Act now",
+        },
+        "image_slots": [],
+        "source_references": [{"source_id": "SENDER_SOURCE_1", "used_fact": "f"}],
+    }
+
+
+def _constraints():
+    return {
+        "headline_max_words": 10,
+        "subheadline_max_words": 22,
+        "body_section_count": 1,
+        "body_section_max_words": 80,
+        "cta_max_words": 15,
+    }
+
+
+def test_word_limit_errors_carry_machine_path_and_max():
+    result = OutputValidator().validate(
+        output=_overlimit_output(),
+        constraints=_constraints(),
+        image_slots=[],
+        allowed_source_ids={"SENDER_SOURCE_1"},
+    )
+    [error] = [e for e in result.errors if e["category"] == "word_limit"]
+    assert error["path"] == ["article", "body_sections", 0, "text"]
+    assert error["max_words"] == 80
+
+
+def test_trim_drops_trailing_sentences_to_fit():
+    output = _overlimit_output()
+    result = OutputValidator().validate(
+        output=output,
+        constraints=_constraints(),
+        image_slots=[],
+        allowed_source_ids={"SENDER_SOURCE_1"},
+    )
+    trimmed = trim_to_word_limits(output, result.errors)
+    assert trimmed is not None
+    assert trimmed["article"]["body_sections"][0]["text"] == "First sentence stays."
+    # original untouched
+    assert output["article"]["body_sections"][0]["text"].startswith(
+        "First sentence stays. word"
+    )
+    revalidated = OutputValidator().validate(
+        output=trimmed,
+        constraints=_constraints(),
+        image_slots=[],
+        allowed_source_ids={"SENDER_SOURCE_1"},
+    )
+    assert revalidated.is_valid
+
+
+def test_trim_gives_up_on_non_word_limit_errors():
+    errors = [
+        {
+            "category": "word_limit",
+            "path": ["article", "cta"],
+            "max_words": 15,
+            "message": "m",
+        },
+        {"category": "source", "message": "bad source"},
+    ]
+    assert trim_to_word_limits(_overlimit_output(), errors) is None
+
+
+def test_trim_gives_up_when_single_sentence_exceeds_limit():
+    output = _overlimit_output()
+    output["article"]["body_sections"][0]["text"] = "word " * 90
+    errors = [
+        {
+            "category": "word_limit",
+            "path": ["article", "body_sections", 0, "text"],
+            "max_words": 80,
+            "message": "m",
+        },
+    ]
+    assert trim_to_word_limits(output, errors) is None
+
+
+def test_trim_gives_up_on_pathless_word_limit_error():
+    errors = [{"category": "word_limit", "message": "Expected 3 body sections, got 2."}]
+    assert trim_to_word_limits(_overlimit_output(), errors) is None

@@ -330,3 +330,32 @@ def test_graph_summaries_disabled_by_setting(settings):
         model.generate_structured.call_args_list[0].kwargs["user_input"],
     )
     assert "sender_document_summaries" not in payload
+
+
+@pytest.mark.django_db
+def test_graph_repairs_word_limit_deterministically_without_llm():
+    tmpl = _template()  # body_section_max_words: 80
+    material = _material(tmpl)
+    model = MagicMock()
+    over = _valid_output()
+    over["article"]["body_sections"] = [
+        {"title": "T", "text": "Keep this sentence. " + "pad " * 85 + "end."},
+    ]
+    model.generate_structured.return_value = over
+    embedder, retriever, validator = _services(model)
+
+    graph = build_generation_graph(
+        embedder=embedder,
+        retriever=retriever,
+        model=model,
+        validator=validator,
+        max_repair_attempts=2,
+    )
+    final = graph.invoke(_initial_state(tmpl, material))
+
+    assert final["is_valid"] is True
+    assert (
+        final["output"]["article"]["body_sections"][0]["text"] == "Keep this sentence."
+    )
+    # generation happened once; the word-limit repair never hit the model
+    assert model.generate_structured.call_count == 1

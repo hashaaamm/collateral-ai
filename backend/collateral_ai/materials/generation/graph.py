@@ -156,6 +156,11 @@ def build_generation_graph(
         return {"is_valid": result.is_valid, "validation_errors": result.errors}
 
     def repair(state: GenerationState) -> dict:
+        from collateral_ai.materials.generation.validation import trim_to_word_limits
+
+        trimmed = trim_to_word_limits(state["output"], state["validation_errors"])
+        if trimmed is not None:
+            return {"output": trimmed, "attempts": state["attempts"] + 1}
         output = model.generate_structured(
             system_instruction=REPAIR_SYSTEM_INSTRUCTION,
             user_input=build_repair_payload(

@@ -7,6 +7,7 @@ category — theme is server-stamped, never validated here.
 
 from __future__ import annotations
 
+import copy
 import re
 from dataclasses import dataclass
 from dataclasses import field
@@ -19,9 +20,43 @@ SOURCE = "source"
 
 INLINE_CITATION_RE = re.compile(r"(?:SENDER|RECEIVER)_SOURCE_\d+")
 
+_SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+")
+
 
 def _word_count(value: str) -> int:
     return len(value.split()) if value else 0
+
+
+def trim_to_word_limits(output: dict, errors: list[dict]) -> dict | None:
+    """Deterministically fix word_limit overages by dropping trailing sentences.
+
+    LLMs count words unreliably, so the repair loop trims in code when it can.
+    Returns a trimmed deep copy when EVERY error is a word_limit overage with a
+    machine `path` and the field fits after dropping whole sentences; None
+    otherwise (caller falls back to LLM repair).
+    """
+    if not errors or any(
+        e.get("category") != WORD_LIMIT or not e.get("path") for e in errors
+    ):
+        return None
+    trimmed = copy.deepcopy(output)
+    for error in errors:
+        *parents, leaf = error["path"]
+        node = trimmed
+        for part in parents:
+            node = node[part]
+        shorter = _drop_trailing_sentences(node[leaf], int(error["max_words"]))
+        if shorter is None:
+            return None
+        node[leaf] = shorter
+    return trimmed
+
+
+def _drop_trailing_sentences(text: str, max_words: int) -> str | None:
+    sentences = _SENTENCE_END_RE.split(text.strip())
+    while sentences and _word_count(" ".join(sentences)) > max_words:
+        sentences.pop()
+    return " ".join(sentences).strip() or None
 
 
 @dataclass
@@ -51,8 +86,8 @@ class OutputValidator:
             self._check_inline_citations(output, errors)
         return ValidationResult(is_valid=not errors, errors=errors)
 
-    def _add(self, errors: list, category: str, message: str) -> None:
-        errors.append({"category": category, "message": message})
+    def _add(self, errors: list, category: str, message: str, **extra: Any) -> None:
+        errors.append({"category": category, "message": message, **extra})
 
     def _check_structure(self, output: dict, errors: list) -> None:
         if not isinstance(output, dict):
@@ -103,23 +138,32 @@ class OutputValidator:
         limits = [
             (
                 "article.headline",
+                ["article", "headline"],
                 article["headline"],
                 constraints["headline_max_words"],
             ),
             (
                 "article.subheadline",
+                ["article", "subheadline"],
                 article["subheadline"],
                 constraints["subheadline_max_words"],
             ),
-            ("article.cta", article["cta"], constraints["cta_max_words"]),
+            (
+                "article.cta",
+                ["article", "cta"],
+                article["cta"],
+                constraints["cta_max_words"],
+            ),
         ]
-        for name, value, max_words in limits:
+        for name, path, value, max_words in limits:
             count = _word_count(value)
             if count > max_words:
                 self._add(
                     errors,
                     WORD_LIMIT,
                     f"{name} has {count} words, max {max_words}.",
+                    path=path,
+                    max_words=max_words,
                 )
         sections = article["body_sections"]
         expected = constraints["body_section_count"]
@@ -137,6 +181,8 @@ class OutputValidator:
                     WORD_LIMIT,
                     f"body_sections[{i}].text has {count} words, "
                     f"max {constraints['body_section_max_words']}.",
+                    path=["article", "body_sections", i - 1, "text"],
+                    max_words=constraints["body_section_max_words"],
                 )
 
     def _check_image_slots(self, output: dict, image_slots: list, errors: list) -> None:
