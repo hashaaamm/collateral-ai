@@ -25,7 +25,7 @@ def auth_client() -> APIClient:
 
 def test_stats_requires_auth():
     resp = APIClient().get("/api/dashboard/stats/")
-    assert resp.status_code == HTTPStatus.FORBIDDEN
+    assert resp.status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_stats_counts_companies_and_documents_by_status(auth_client):

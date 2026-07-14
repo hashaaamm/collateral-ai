@@ -28,7 +28,7 @@ def docs_url(company_pk: int) -> str:
 
 def test_list_requires_auth():
     resp = APIClient().get("/api/companies/1/documents/")
-    assert resp.status_code == HTTPStatus.FORBIDDEN
+    assert resp.status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_list_is_scoped_to_company(auth_client):
