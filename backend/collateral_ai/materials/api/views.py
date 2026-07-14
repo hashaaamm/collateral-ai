@@ -1,9 +1,4 @@
-import datetime
-import logging
-
-from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
@@ -19,11 +14,9 @@ from rest_framework.mixins import UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
+from collateral_ai.materials import services
 from collateral_ai.materials.models import MarketingMaterial
 from collateral_ai.materials.models import Template
-from collateral_ai.materials.statuses import GenerationStatus
-from collateral_ai.materials.statuses import ReviewStatus
-from collateral_ai.materials.worker_trigger import trigger_generation
 
 from .serializers import MaterialCreateSerializer
 from .serializers import MaterialDetailSerializer
@@ -31,16 +24,6 @@ from .serializers import MaterialListSerializer
 from .serializers import MaterialRegenerateSerializer
 from .serializers import MaterialUpdateSerializer
 from .serializers import TemplateSerializer
-
-logger = logging.getLogger(__name__)
-
-# User-facing failure text. The real exception (which may leak infra details
-# like internal hostnames) is logged server-side, never surfaced to the client.
-_GENERIC_DISPATCH_ERROR = "Generation could not be started. Please try again."
-
-# A queued/processing row older than this is considered stranded (crashed job)
-# and may be regenerated (spec §5.2). Comfortably above the 600s job timeout.
-STALE_AFTER = datetime.timedelta(minutes=15)
 
 LIST_FILTER_PARAMS = [
     OpenApiParameter("company", int, description="Sender OR receiver company id"),
@@ -119,42 +102,15 @@ class MaterialViewSet(
         responses={201: MaterialDetailSerializer},
     )
     def create(self, request, *args, **kwargs):
+        # Overridden only to render the detail shape at 201 (wire contract);
+        # creation itself runs through the serializer → services.create_material.
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         material = serializer.save()
-        self._dispatch(material)
-        material.refresh_from_db()
         return Response(
             MaterialDetailSerializer(material, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
-
-    def _dispatch(self, material) -> None:
-        """Trigger the worker inside its own savepoint (spec §5.5).
-
-        The request runs under ATOMIC_REQUESTS; the inner atomic() means a
-        failing trigger (or a poisoned inline run) can't take the created row
-        down with it — we mark the material failed and still return 201.
-        """
-        try:
-            with transaction.atomic():
-                operation_name = trigger_generation(material)
-        except Exception:  # any trigger failure → failed row, generic client message
-            logger.exception(
-                "Material %s generation dispatch failed",
-                material.pk,
-            )
-            MarketingMaterial.objects.filter(pk=material.pk).update(
-                generation_status=GenerationStatus.FAILED,
-                error_message=_GENERIC_DISPATCH_ERROR,
-                updated_at=timezone.now(),
-            )
-        else:
-            if operation_name:
-                MarketingMaterial.objects.filter(pk=material.pk).update(
-                    job_operation_name=operation_name,
-                    updated_at=timezone.now(),
-                )
 
     @extend_schema(
         request=MaterialRegenerateSerializer,
@@ -165,43 +121,14 @@ class MaterialViewSet(
     )
     @action(detail=True, methods=["post"])
     def regenerate(self, request, pk=None):
-        # get_object() first so DRF's 404/permission checks still apply against
-        # the unlocked queryset; the locked re-fetch below guards the actual
-        # read-modify-write against a concurrent worker completion.
+        # get_object() first so DRF's 404/permission checks still apply.
         material = self.get_object()
         body = MaterialRegenerateSerializer(data=request.data)
         body.is_valid(raise_exception=True)
-        new_prompt = body.validated_data.get("prompt")
-        with transaction.atomic():
-            material = MarketingMaterial.objects.select_for_update().get(
-                pk=material.pk,
-            )
-            is_active = material.generation_status in {
-                GenerationStatus.QUEUED,
-                GenerationStatus.PROCESSING,
-            }
-            is_stale = material.updated_at < timezone.now() - STALE_AFTER
-            if is_active and not is_stale:
-                return Response(
-                    {"detail": "Generation is already in progress."},
-                    status=status.HTTP_409_CONFLICT,
-                )
-            # Apply an edited prompt in the same locked txn so the row that gets
-            # re-queued is the one the new prompt will generate from.
-            if new_prompt is not None:
-                material.prompt = new_prompt
-            material.generation_status = GenerationStatus.QUEUED
-            material.review_status = ReviewStatus.PENDING
-            material.output_json = None
-            material.validation_result = None
-            material.retrieved_context = None
-            material.error_message = ""
-            material.job_operation_name = ""
-            material.completed_at = None
-            material.save()
-            material.sources.all().delete()
-        self._dispatch(material)
-        material.refresh_from_db()
+        material = services.regenerate_material(
+            material,
+            prompt=body.validated_data.get("prompt"),
+        )
         return Response(
             MaterialDetailSerializer(material, context={"request": request}).data,
             status=status.HTTP_202_ACCEPTED,

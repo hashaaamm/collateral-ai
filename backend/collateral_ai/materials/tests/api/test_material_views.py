@@ -23,7 +23,7 @@ from collateral_ai.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 
 URL = "/api/materials/"
-TRIGGER = "collateral_ai.materials.api.views.trigger_generation"
+TRIGGER = "collateral_ai.materials.services.trigger_generation"
 
 
 @pytest.fixture
