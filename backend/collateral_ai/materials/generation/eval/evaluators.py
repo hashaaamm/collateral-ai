@@ -106,7 +106,7 @@ receiver_context: {receiver}
 _MAX_JUDGE_ATTEMPTS = 3
 
 
-def _is_transient_error(exc: Exception) -> bool:
+def is_transient_error(exc: Exception) -> bool:
     haystack = f"{type(exc).__name__} {exc}".lower()
     return "429" in haystack or "resourceexhausted" in haystack
 
@@ -132,9 +132,10 @@ def _default_judge(prompt: str) -> str:
                 config=types.GenerateContentConfig(temperature=0.0),
             )
         except Exception as exc:  # noqa: BLE001 - judge must never raise
-            if attempt >= _MAX_JUDGE_ATTEMPTS or not _is_transient_error(exc):
+            if attempt >= _MAX_JUDGE_ATTEMPTS or not is_transient_error(exc):
                 return ""
-            time.sleep(2 * attempt)
+            # Vertex quota is per-minute; short sleeps just re-hit the window.
+            time.sleep(15 * attempt)
         else:
             return response.text or ""
     return ""

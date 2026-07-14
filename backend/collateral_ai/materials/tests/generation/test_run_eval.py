@@ -180,3 +180,44 @@ def test_eval_wrappers_score_failure_when_output_falsy_but_present():
         "key": "specificity",
         "score": 0.0,
     }
+
+
+def test_generate_with_retry_rides_out_transient_429(monkeypatch):
+    calls = []
+
+    def flaky(self, material_id, *, force=False, top_k=None):
+        calls.append(material_id)
+        if len(calls) < 3:
+            msg = "429 RESOURCE_EXHAUSTED"
+            raise RuntimeError(msg)
+
+    monkeypatch.setattr(run_eval.MaterialGenerationService, "generate", flaky)
+    slept = []
+    monkeypatch.setattr(run_eval.time, "sleep", slept.append)
+    run_eval.generate_with_retry(7)
+    assert calls == [7, 7, 7]
+    assert slept == [30, 60]
+
+
+def test_generate_with_retry_raises_non_transient_immediately(monkeypatch):
+    def boom(self, material_id, *, force=False, top_k=None):
+        msg = "schema validation failed"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(run_eval.MaterialGenerationService, "generate", boom)
+    slept = []
+    monkeypatch.setattr(run_eval.time, "sleep", slept.append)
+    with pytest.raises(RuntimeError, match="schema validation failed"):
+        run_eval.generate_with_retry(7)
+    assert slept == []
+
+
+def test_generate_with_retry_gives_up_after_max_attempts(monkeypatch):
+    def always_429(self, material_id, *, force=False, top_k=None):
+        msg = "429 RESOURCE_EXHAUSTED"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(run_eval.MaterialGenerationService, "generate", always_429)
+    monkeypatch.setattr(run_eval.time, "sleep", lambda _s: None)
+    with pytest.raises(RuntimeError, match="429"):
+        run_eval.generate_with_retry(7)
