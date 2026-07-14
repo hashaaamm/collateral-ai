@@ -7,6 +7,7 @@ category — theme is server-stamped, never validated here.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
@@ -15,6 +16,8 @@ STRUCTURE = "structure"
 WORD_LIMIT = "word_limit"
 IMAGE_SLOT = "image_slot"
 SOURCE = "source"
+
+INLINE_CITATION_RE = re.compile(r"(?:SENDER|RECEIVER)_SOURCE_\d+")
 
 
 def _word_count(value: str) -> int:
@@ -45,6 +48,7 @@ class OutputValidator:
             self._check_word_limits(output, constraints, errors)
             self._check_image_slots(output, image_slots, errors)
             self._check_sources(output, allowed_source_ids, errors)
+            self._check_inline_citations(output, errors)
         return ValidationResult(is_valid=not errors, errors=errors)
 
     def _add(self, errors: list, category: str, message: str) -> None:
@@ -188,4 +192,25 @@ class OutputValidator:
                     errors,
                     SOURCE,
                     f"source_references[{i}].used_fact is required.",
+                )
+
+    def _check_inline_citations(self, output: dict, errors: list) -> None:
+        article = output["article"]
+        fields_to_check = [
+            ("article.headline", article.get("headline")),
+            ("article.subheadline", article.get("subheadline")),
+            ("article.cta", article.get("cta")),
+        ]
+        for i, section in enumerate(article.get("body_sections", []), start=1):
+            if not isinstance(section, dict):
+                continue
+            fields_to_check.append((f"body_sections[{i}].title", section.get("title")))
+            fields_to_check.append((f"body_sections[{i}].text", section.get("text")))
+        for name, value in fields_to_check:
+            if isinstance(value, str) and INLINE_CITATION_RE.search(value):
+                self._add(
+                    errors,
+                    SOURCE,
+                    f"{name} contains internal source tokens; cite only in "
+                    "source_references.",
                 )

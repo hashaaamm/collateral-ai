@@ -12,6 +12,7 @@ import time
 
 from django.conf import settings
 
+from collateral_ai.materials.generation.validation import INLINE_CITATION_RE
 from collateral_ai.materials.generation.validation import OutputValidator
 
 _SCORE_RE = re.compile(r"-?\d+(?:\.\d+)?")
@@ -76,6 +77,18 @@ def counts_match(output: dict, template) -> bool:
     sections = output.get("article", {}).get("body_sections", [])
     slots_ok = len(output.get("image_slots", [])) == len(template.image_slots)
     return len(sections) == expected and slots_ok
+
+
+def no_inline_citations(output: dict) -> bool:
+    article = output.get("article", {})
+    fields = [article.get("headline"), article.get("subheadline"), article.get("cta")]
+    for section in article.get("body_sections", []):
+        if isinstance(section, dict):
+            fields.append(section.get("title"))
+            fields.append(section.get("text"))
+    return not any(
+        isinstance(value, str) and INLINE_CITATION_RE.search(value) for value in fields
+    )
 
 
 _JUDGE_PROMPT = """You grade groundedness of marketing copy against source context.

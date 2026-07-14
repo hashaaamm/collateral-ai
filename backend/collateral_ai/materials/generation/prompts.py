@@ -32,6 +32,9 @@ limits, counted by whitespace-separated words).
 - source_references: cite a DIVERSE set of source_id values that appear in \
 sender_context or receiver_context (do not lean on a single source), and \
 explain the fact used.
+- Never write source ids (SENDER_SOURCE_x / RECEIVER_SOURCE_x) inside the \
+article text — the article must read as clean prose; citations go ONLY in \
+source_references.
 - Match the requested tone and cta_style; keep it professional, credible, and \
 specific.
 """.strip()
@@ -45,6 +48,8 @@ Rules:
 - Do not add unsupported claims.
 - Respect all word limits (whitespace-separated words).
 - Use only allowed source IDs.
+- Remove any SENDER_SOURCE_x / RECEIVER_SOURCE_x tokens from article text, \
+preserving the sentence's meaning.
 """.strip()
 
 

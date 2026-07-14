@@ -140,6 +140,42 @@ def test_graph_repairs_once_then_succeeds():
 
 
 @pytest.mark.django_db
+def test_graph_repairs_inline_citation_token_then_succeeds():
+    tmpl = _template()
+    material = _material(tmpl)
+    model = MagicMock()
+    output_with_inline_token = {
+        "article": {
+            "headline": "Short headline",
+            "subheadline": "Sub",
+            "body_sections": [
+                {
+                    "title": "T",
+                    "text": "Handles 50 million samples/sec (RECEIVER_SOURCE_1).",
+                },
+            ],
+            "cta": "Act now",
+        },
+        "source_references": [{"source_id": "SENDER_SOURCE_1", "used_fact": "f"}],
+    }
+    model.generate_structured.side_effect = [output_with_inline_token, _valid_output()]
+    embedder, retriever, validator = _services(model)
+
+    graph = build_generation_graph(
+        embedder=embedder,
+        retriever=retriever,
+        model=model,
+        validator=validator,
+        max_repair_attempts=2,
+    )
+    final = graph.invoke(_initial_state(tmpl, material))
+
+    assert final["is_valid"] is True
+    assert final["attempts"] == 1
+    assert model.generate_structured.call_count == 2
+
+
+@pytest.mark.django_db
 def test_graph_fails_after_max_attempts():
     tmpl = _template()
     material = _material(tmpl)

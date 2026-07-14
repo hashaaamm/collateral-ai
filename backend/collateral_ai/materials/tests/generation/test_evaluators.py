@@ -34,6 +34,16 @@ def test_counts_match_true():
     assert evaluators.counts_match(_output(), _template()) is True
 
 
+def test_no_inline_citations_true_when_clean():
+    assert evaluators.no_inline_citations(_output()) is True
+
+
+def test_no_inline_citations_false_when_token_present():
+    output = _output()
+    output["article"]["body_sections"][0]["text"] = "x (SENDER_SOURCE_1)"
+    assert evaluators.no_inline_citations(output) is False
+
+
 def test_groundedness_judge_parses_injected_score():
     score = evaluators.groundedness_judge(
         _output(),
