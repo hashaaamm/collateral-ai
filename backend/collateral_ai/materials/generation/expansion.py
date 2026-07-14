@@ -54,3 +54,68 @@ def stitch(pieces: list[DocumentChunk]) -> str:
     segments.append(current)
     prefix = TABLE_PREFIX if is_table else ""
     return "\n\n".join(prefix + " ".join(segment) for segment in segments)
+
+
+class NeighborExpander:
+    """Assigns each rank-ordered seed its unclaimed ±window neighbors, stitched."""
+
+    def __init__(self, *, window: int) -> None:
+        self.window = window
+
+    def expand(self, seeds: list[DocumentChunk]) -> dict[int, str]:
+        """Map seed chunk id -> expanded passage; seeds must be rank-ordered.
+
+        Seeds with no fresh neighbors are omitted (their content stands alone).
+        """
+        if self.window <= 0 or not seeds:
+            return {}
+        ordered = self._ordered_ids(seeds)
+        claimed = {seed.pk for seed in seeds}
+        assignment: dict[int, list[int]] = {}
+        for seed in seeds:
+            key = (seed.document_id, seed.chunk_type)
+            if key not in ordered:
+                continue
+            ids = ordered[key]
+            pos = ids.index(seed.pk)
+            lo = max(0, pos - self.window)
+            wanted = ids[lo:pos] + ids[pos + 1 : pos + 1 + self.window]
+            fresh = [pk for pk in wanted if pk not in claimed]
+            if fresh:
+                claimed.update(fresh)
+                assignment[seed.pk] = fresh
+        if not assignment:
+            return {}
+        neighbor_ids = [pk for pks in assignment.values() for pk in pks]
+        neighbors = DocumentChunk.objects.in_bulk(neighbor_ids)
+        return {
+            seed.pk: stitch(
+                sorted(
+                    [seed, *(neighbors[pk] for pk in assignment[seed.pk])],
+                    key=lambda chunk: chunk.pk,
+                ),
+            )
+            for seed in seeds
+            if seed.pk in assignment
+        }
+
+    def _ordered_ids(self, seeds: list[DocumentChunk]) -> dict[tuple[int, str], list[int]]:
+        keys = {
+            (seed.document_id, seed.chunk_type)
+            for seed in seeds
+            if seed.chunk_type not in NON_EXPANDING_CHUNK_TYPES
+        }
+        if not keys:
+            return {}
+        rows = (
+            DocumentChunk.objects.filter(
+                document_id__in={doc_id for doc_id, _ in keys},
+            )
+            .order_by("pk")
+            .values_list("document_id", "chunk_type", "pk")
+        )
+        ordered: dict[tuple[int, str], list[int]] = {}
+        for doc_id, chunk_type, pk in rows:
+            if (doc_id, chunk_type) in keys:
+                ordered.setdefault((doc_id, chunk_type), []).append(pk)
+        return ordered
