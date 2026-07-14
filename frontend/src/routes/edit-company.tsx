@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 
 import { CompanyForm } from "@/components/company-form";
-import { LoadingState } from "@/components/ui/spinner";
+import { PageSpinner } from "@/components/ui/spinner";
 import { useCompany, useUpdateCompany } from "@/lib/api/companies";
 
 export function EditCompanyPage() {
@@ -12,11 +12,7 @@ export function EditCompanyPage() {
   const update = useUpdateCompany(id);
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-[760px] px-10 pt-8">
-        <LoadingState />
-      </div>
-    );
+    return <PageSpinner />;
   }
   if (isError || !company) {
     return (

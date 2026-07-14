@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Buildings, CaretRight, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 
 import { CompanyLogo } from "@/components/company-logo";
+import { PageSpinner } from "@/components/ui/spinner";
 import { useCompanies } from "@/lib/api/companies";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { formatRelativeDay } from "@/lib/format";
@@ -50,7 +51,7 @@ export function CompaniesListPage() {
           <span className="w-4" />
         </div>
 
-        {isLoading && <div className="px-5 py-8 text-center text-sm text-mute">Loading…</div>}
+        {isLoading && <PageSpinner className="min-h-[200px]" />}
         {isError && (
           <div className="px-5 py-8 text-center text-sm text-destructive">
             Couldn't load companies.

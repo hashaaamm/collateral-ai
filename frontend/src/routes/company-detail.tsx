@@ -6,7 +6,7 @@ import { CompanyLogo } from "@/components/company-logo";
 import { DocumentsTab } from "@/components/documents-tab";
 import { MaterialsTab } from "@/components/materials-tab";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
-import { LoadingState } from "@/components/ui/spinner";
+import { PageSpinner } from "@/components/ui/spinner";
 import { useCompany, useDeleteCompany } from "@/lib/api/companies";
 
 const TABS = ["Overview", "Documents", "Generated Materials"] as const;
@@ -32,11 +32,7 @@ export function CompanyDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-[1080px] px-10 pt-8">
-        <LoadingState />
-      </div>
-    );
+    return <PageSpinner />;
   }
   if (isError || !company) {
     return (

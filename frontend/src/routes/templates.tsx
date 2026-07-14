@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Newspaper, Plus } from "@phosphor-icons/react";
 
+import { PageSpinner } from "@/components/ui/spinner";
 import { templateConstraints, templateImageSlots, useTemplates } from "@/lib/api/templates";
 
 export function TemplatesPage() {
@@ -23,7 +24,7 @@ export function TemplatesPage() {
         </Link>
       </div>
 
-      {isLoading && <p className="text-[13px] text-mute">Loading…</p>}
+      {isLoading && <PageSpinner />}
 
       <div className="grid grid-cols-[1.4fr_1fr] items-start gap-5">
         <div className="flex flex-col gap-4">

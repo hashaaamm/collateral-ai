@@ -4,7 +4,7 @@ import { ArrowClockwise, ArrowSquareOut, FilePdf, Trash, UploadSimple } from "@p
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { StatusPill } from "@/components/status-pill";
 import { useUploads } from "@/components/uploads/use-uploads";
-import { LoadingState } from "@/components/ui/spinner";
+import { PageSpinner } from "@/components/ui/spinner";
 import {
   fetchDocumentViewUrl,
   useCompleteDocument,
@@ -79,7 +79,7 @@ export function DocumentsTab({ companyId }: { companyId: number }) {
       {openError && <p className="mb-3 text-[12.5px] text-destructive">{openError}</p>}
 
       {isLoading ? (
-        <LoadingState />
+        <PageSpinner className="min-h-[200px]" />
       ) : docs.length === 0 ? (
         <p className="text-[13px] text-mute">No documents yet. Upload a PDF to get started.</p>
       ) : (
