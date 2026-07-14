@@ -1,13 +1,14 @@
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Buildings,
   FileText,
   MagicWand,
   Flag,
+  Check,
   CheckCircle,
   CircleNotch,
   WarningCircle,
-  ArrowRight,
 } from "@phosphor-icons/react";
 
 import { StatCard } from "@/components/stat-card";
@@ -53,6 +54,33 @@ function MaterialPill({ status }: { status: MaterialPillStatus }) {
   );
 }
 
+/** One step row in the Quick start card: status chip + title + sublabel. */
+function QuickStep({
+  bg,
+  icon,
+  title,
+  sub,
+}: {
+  bg: string;
+  icon: ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className={`flex size-8 flex-none items-center justify-center rounded-lg ${bg}`}
+      >
+        {icon}
+      </span>
+      <div>
+        <div className="text-[13.5px] font-semibold text-ink">{title}</div>
+        <div className="text-[11.5px] text-mute">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
 function greeting(hour: number): string {
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
@@ -72,6 +100,10 @@ export function DashboardPage() {
     day: "numeric",
   }).format(now);
   const firstName = user?.name?.trim().split(/\s+/)[0] || "there";
+
+  const companiesCount = stats?.companies_count ?? 0;
+  const companiesReady = companiesCount > 0;
+  const docsProcessing = stats?.documents_processing ?? 0;
 
   return (
     <div className="mx-auto max-w-[1080px] px-10 pb-[60px] pt-8">
@@ -172,24 +204,55 @@ export function DashboardPage() {
         <div className="rounded-2xl border border-hairline bg-surface p-5">
           <h2 className="text-[15px] font-semibold text-ink">Quick start</h2>
           <p className="mt-1 text-[13px] text-subtext">
-            Generate a tailored marketing article, or manage the company context it draws from.
+            Go from company context to a finished article in three steps.
           </p>
-          <div className="mt-4 flex flex-col gap-2">
-            <Link
-              to="/create"
-              className="flex items-center justify-center gap-[7px] rounded-[10px] bg-brand px-[15px] py-[10px] text-[13.5px] font-semibold text-white hover:bg-brand-hover"
-            >
-              <MagicWand weight="fill" size={15} />
-              Create Material
-            </Link>
-            <Link
-              to="/companies"
-              className="flex items-center justify-center gap-[7px] rounded-[10px] border border-field px-[15px] py-[10px] text-[13.5px] font-semibold text-body hover:bg-nav-hover"
-            >
-              Manage Companies
-              <ArrowRight weight="bold" size={14} />
-            </Link>
+          <div className="mt-[18px] flex flex-col gap-[14px]">
+            <QuickStep
+              bg={companiesReady ? "bg-success-soft" : "bg-brand-soft"}
+              icon={
+                companiesReady ? (
+                  <Check weight="bold" size={15} className="text-success" />
+                ) : (
+                  <span className="text-[12px] font-bold text-brand">1</span>
+                )
+              }
+              title="Add companies"
+              sub={
+                companiesReady
+                  ? `${companiesCount} ${companiesCount === 1 ? "profile" : "profiles"} ready`
+                  : "Add your first company"
+              }
+            />
+            <QuickStep
+              bg={docsProcessing > 0 ? "bg-warning-soft" : "bg-success-soft"}
+              icon={
+                docsProcessing > 0 ? (
+                  <CircleNotch size={15} className="animate-spin text-warning" />
+                ) : (
+                  <Check weight="bold" size={15} className="text-success" />
+                )
+              }
+              title="Upload documents"
+              sub={
+                docsProcessing > 0
+                  ? `${docsProcessing} still processing`
+                  : "All documents processed"
+              }
+            />
+            <QuickStep
+              bg="bg-brand-soft"
+              icon={<span className="text-[12px] font-bold text-brand">3</span>}
+              title="Generate material"
+              sub="Sender → receiver article"
+            />
           </div>
+          <Link
+            to="/create"
+            className="mt-5 flex items-center justify-center gap-[7px] rounded-[10px] bg-brand px-[15px] py-[11px] text-[13.5px] font-semibold text-white hover:bg-brand-hover"
+          >
+            <MagicWand weight="fill" size={15} />
+            Create Material
+          </Link>
         </div>
       </div>
     </div>
