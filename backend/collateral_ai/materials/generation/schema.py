@@ -19,15 +19,14 @@ SLOT_SOURCE_VALUES = ["sender", "receiver", "generated_placeholder"]
 def build_response_schema(
     *,
     constraints: dict,
-    image_slots: list[dict],
+    allowed_source_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     section_count = int(constraints["body_section_count"])
-    slot_ids = [slot["slot_id"] for slot in image_slots]
-    slot_id_property: dict[str, Any] = {"type": "STRING"}
-    if slot_ids:
-        # Vertex's OpenAPI subset rejects an empty "enum": []; only constrain
-        # slot_id when there are slot ids to constrain it to.
-        slot_id_property["enum"] = slot_ids
+    source_id_property: dict[str, Any] = {"type": "STRING"}
+    if allowed_source_ids:
+        # Structurally prevent hallucinated citations (defense-in-depth with
+        # OutputValidator's source check).
+        source_id_property["enum"] = list(allowed_source_ids)
     return {
         "type": "OBJECT",
         "properties": {
@@ -53,32 +52,18 @@ def build_response_schema(
                 },
                 "required": ["headline", "subheadline", "body_sections", "cta"],
             },
-            "image_slots": {
-                "type": "ARRAY",
-                "minItems": len(slot_ids),
-                "maxItems": len(slot_ids),
-                "items": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "slot_id": slot_id_property,
-                        "description": {"type": "STRING"},
-                        "source": {"type": "STRING", "enum": SLOT_SOURCE_VALUES},
-                    },
-                    "required": ["slot_id", "description", "source"],
-                },
-            },
             "source_references": {
                 "type": "ARRAY",
                 "minItems": 1,
                 "items": {
                     "type": "OBJECT",
                     "properties": {
-                        "source_id": {"type": "STRING"},
+                        "source_id": source_id_property,
                         "used_fact": {"type": "STRING"},
                     },
                     "required": ["source_id", "used_fact"],
                 },
             },
         },
-        "required": ["article", "image_slots", "source_references"],
+        "required": ["article", "source_references"],
     }

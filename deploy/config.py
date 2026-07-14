@@ -45,9 +45,11 @@ class InfraConfig:
     # features
     enable_payments: bool
     enable_email: bool
+    enable_tracing: bool
     resend_api_key_value: str
     stripe_secret_key_value: str
     stripe_webhook_secret_value: str
+    langsmith_api_key_value: str
     # ci / wif
     github_repo: str
     # storage
@@ -86,9 +88,11 @@ class InfraConfig:
             gke_master_cidr=os.environ.get("GKE_MASTER_CIDR", "172.16.0.0/28"),
             enable_payments=_bool("ENABLE_PAYMENTS", True),
             enable_email=_bool("ENABLE_EMAIL", True),
+            enable_tracing=_bool("ENABLE_TRACING", True),
             resend_api_key_value=os.environ.get("RESEND_API_KEY_VALUE", "REPLACE_ME"),
             stripe_secret_key_value=os.environ.get("STRIPE_SECRET_KEY_VALUE", "REPLACE_ME"),
             stripe_webhook_secret_value=os.environ.get("STRIPE_WEBHOOK_SECRET_VALUE", "REPLACE_ME"),
+            langsmith_api_key_value=os.environ.get("LANGSMITH_API_KEY_VALUE", "REPLACE_ME"),
             github_repo=os.environ.get("GITHUB_REPO", "").strip(),
             bucket_cors_allowed_origins=os.environ.get(
                 "BUCKET_CORS_ALLOWED_ORIGINS", "http://localhost:3000",
