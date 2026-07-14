@@ -19,6 +19,7 @@ import { MaterialJson } from "@/components/material-json";
 import { MaterialSources } from "@/components/material-sources";
 import { NewsletterPreview } from "@/components/newsletter-preview";
 import { StatusPill, materialPillStatus } from "@/components/status-pill";
+import { PageSpinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -186,7 +187,7 @@ export function MaterialDetailPage() {
   }, [updatedAt]);
 
   if (isLoading) {
-    return <div className="mx-auto max-w-[1120px] px-10 pt-8 text-sm text-mute">Loading…</div>;
+    return <PageSpinner />;
   }
   if (isError || !material) {
     return (

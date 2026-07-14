@@ -4,6 +4,7 @@ import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
 
 import { CompanyLogo } from "@/components/company-logo";
 import { StatusPill, materialPillStatus } from "@/components/status-pill";
+import { Spinner } from "@/components/ui/spinner";
 import { useMaterials, type MaterialList } from "@/lib/api/materials";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
@@ -108,8 +109,10 @@ export function MaterialsPage() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-mute">
-                  Loading…
+                <td colSpan={5} className="px-5 py-10">
+                  <div className="flex justify-center">
+                    <Spinner size={24} className="text-brand" />
+                  </div>
                 </td>
               </tr>
             )}

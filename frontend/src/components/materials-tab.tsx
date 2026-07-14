@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowDownLeft, ArrowUpRight } from "@phosphor-icons/react";
 
 import { StatusPill, materialPillStatus } from "@/components/status-pill";
+import { PageSpinner } from "@/components/ui/spinner";
 import { useMaterials, type MaterialList } from "@/lib/api/materials";
 
 function MaterialCard({
@@ -55,7 +56,7 @@ function Column({
 export function MaterialsTab({ companyId }: { companyId: number }) {
   const { data: materials, isLoading, isError } = useMaterials({ company: companyId });
 
-  if (isLoading) return <p className="text-[13px] text-mute">Loading…</p>;
+  if (isLoading) return <PageSpinner className="min-h-[200px]" />;
   if (isError) return <p className="text-[13px] text-destructive">Failed to load materials.</p>;
 
   const all = materials ?? [];

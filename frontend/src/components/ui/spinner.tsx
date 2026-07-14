@@ -12,13 +12,12 @@ function Spinner({ size, className }: { size?: number; className?: string }) {
   );
 }
 
-function LoadingState({ label, className }: { label?: string; className?: string }) {
+function PageSpinner({ className }: { className?: string }) {
   return (
-    <div className={cn("inline-flex items-center gap-2 text-mute", className)}>
-      <Spinner />
-      <span className="text-[13px]">{label ?? "Loading…"}</span>
+    <div className={cn("flex min-h-[60vh] items-center justify-center", className)}>
+      <Spinner size={28} className="text-brand" />
     </div>
   );
 }
 
-export { Spinner, LoadingState };
+export { Spinner, PageSpinner };
