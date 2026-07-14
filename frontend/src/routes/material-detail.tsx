@@ -8,7 +8,6 @@ import {
   CheckCircle,
   CircleNotch,
   Copy,
-  PencilSimple,
   Prohibit,
   Trash,
   XCircle,
@@ -131,20 +130,52 @@ function ConstraintMeters({ material }: { material: MaterialDetail }) {
   );
 }
 
-function EditPromptDialog({ material }: { material: MaterialDetail }) {
+function RegenerateDialog({
+  material,
+  disabled,
+}: {
+  material: MaterialDetail;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState(material.prompt);
-  const update = useUpdateMaterial(material.id);
+  const regenerate = useRegenerateMaterial(material.id);
+  const pending = regenerate.isPending;
+
+  // Reset the textarea to the saved prompt whenever the dialog opens so a
+  // cancelled edit never lingers into the next open.
+  const onOpenChange = (next: boolean) => {
+    if (next) setPrompt(material.prompt);
+    setOpen(next);
+  };
+
+  const submit = async () => {
+    try {
+      // Save the edited prompt (if any) and re-queue generation in one request.
+      // Passing undefined when unchanged keeps the stored prompt server-side.
+      const changed = prompt !== material.prompt;
+      await regenerate.mutateAsync(changed ? prompt : undefined);
+      setOpen(false);
+    } catch {
+      toast.error("Couldn't regenerate material");
+    }
+  };
+
   return (
-    <AlertDialog>
-      <AlertDialogTrigger className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-body hover:bg-subtle">
-        <PencilSimple size={15} />
-        Edit prompt
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogTrigger
+        disabled={disabled || pending}
+        className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-body hover:bg-subtle disabled:opacity-50"
+      >
+        <ArrowsClockwise size={15} />
+        Regenerate
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Edit prompt</AlertDialogTitle>
+          <AlertDialogTitle>Regenerate material</AlertDialogTitle>
           <AlertDialogDescription>
-            Saving does not regenerate — use Regenerate afterwards to apply it.
+            Edit the prompt below if you want, then regenerate. This replaces the
+            current output.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <textarea
@@ -154,8 +185,17 @@ function EditPromptDialog({ material }: { material: MaterialDetail }) {
           className="w-full rounded-[10px] border border-field bg-subtle p-3 text-[13px] text-body outline-none focus:border-brand"
         />
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={() => update.mutate({ prompt })}>Save</AlertDialogAction>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={pending}
+            onClick={(e) => {
+              // Keep the dialog open until save+regenerate resolve.
+              e.preventDefault();
+              void submit();
+            }}
+          >
+            {pending ? "Regenerating…" : "Regenerate"}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -169,7 +209,6 @@ export function MaterialDetailPage() {
   const [tab, setTab] = useState<Tab>("Preview");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const update = useUpdateMaterial(Number(materialId));
-  const regenerate = useRegenerateMaterial(Number(materialId));
   const del = useDeleteMaterial();
 
   // spec §5.2: stuck-row escape hatch. Date.now() must run inside an effect,
@@ -241,16 +280,7 @@ export function MaterialDetailPage() {
           })}
         />
         <div className="ml-auto flex items-center gap-[9px]">
-          <button
-            type="button"
-            disabled={(generating && !stale) || regenerate.isPending}
-            onClick={() => regenerate.mutate()}
-            className="flex items-center gap-[7px] rounded-[10px] border border-field bg-surface px-[14px] py-[9px] text-[13px] font-semibold text-body hover:bg-subtle disabled:opacity-50"
-          >
-            <ArrowsClockwise size={15} />
-            Regenerate
-          </button>
-          <EditPromptDialog material={material} />
+          <RegenerateDialog material={material} disabled={generating && !stale} />
           {completed && (
             <>
               <button

@@ -457,6 +457,15 @@ export interface components {
             /** Format: date-time */
             completed_at?: string | null;
         };
+        /**
+         * @description Body for the ``regenerate`` action.
+         *
+         *     ``prompt`` is optional: omit it to re-run with the stored prompt, or pass a
+         *     new one to edit-and-regenerate in a single request (no separate PATCH).
+         */
+        MaterialRegenerate: {
+            prompt?: string;
+        };
         MaterialUpdate: {
             readonly id: number;
             title: string;
@@ -1063,7 +1072,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MaterialRegenerate"];
+                "application/x-www-form-urlencoded": components["schemas"]["MaterialRegenerate"];
+                "multipart/form-data": components["schemas"]["MaterialRegenerate"];
+            };
+        };
         responses: {
             202: {
                 headers: {
