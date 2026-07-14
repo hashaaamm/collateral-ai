@@ -42,10 +42,10 @@ SQL_AVAILABILITY_TYPE=ZONAL
 SQL_DELETION_PROTECTION=true
 
 # --- Cloud Run sizing (used by CI deploy; review to control cost) ---
-# min-instances 0 = scale to zero (cheapest, cold starts). Set backend to 1 to keep it warm ($).
+# min-instances 0 = scale to zero (cheapest, cold starts). Backend runs 1 to stay warm (~$10/mo idle).
 BACKEND_CPU=1
 BACKEND_MEMORY=512Mi
-BACKEND_MIN_INSTANCES=0
+BACKEND_MIN_INSTANCES=1
 BACKEND_MAX_INSTANCES=4
 FRONTEND_CPU=1
 FRONTEND_MEMORY=512Mi
