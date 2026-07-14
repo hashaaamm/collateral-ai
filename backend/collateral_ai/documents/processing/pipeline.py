@@ -80,7 +80,7 @@ class DocumentProcessingService:
             self._save_chunks(document, payloads, embeddings)
             logger.info("timing: save chunks %.2fs", time.monotonic() - t)
             t = time.monotonic()
-            summary = self._summarize(payloads)
+            summary = self._summarize(document.id, payloads)
             logger.info("timing: summary %.2fs", time.monotonic() - t)
             Document.objects.filter(id=document.id).update(
                 status=DocumentStatus.PROCESSED,
@@ -181,10 +181,14 @@ class DocumentProcessingService:
             batch_size=500,
         )
 
-    def _summarize(self, payloads: list[dict[str, Any]]) -> str:
+    def _summarize(self, document_id: int, payloads: list[dict[str, Any]]) -> str:
         """Best-effort: a missing summary must never fail ingestion (spec §5.2)."""
         try:
             return self.summarizer.summarize([p["content"] for p in payloads])
         except Exception:  # noqa: BLE001 — any summarizer error degrades to no summary
-            logger.warning("summary generation failed; continuing without one")
+            logger.warning(
+                "summary generation failed document=%s; continuing without one",
+                document_id,
+                exc_info=True,
+            )
             return ""

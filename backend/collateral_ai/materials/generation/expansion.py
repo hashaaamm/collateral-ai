@@ -77,6 +77,8 @@ class NeighborExpander:
             if key not in ordered:
                 continue
             ids = ordered[key]
+            if seed.pk not in ids:
+                continue
             pos = ids.index(seed.pk)
             lo = max(0, pos - self.window)
             wanted = ids[lo:pos] + ids[pos + 1 : pos + 1 + self.window]
@@ -88,16 +90,21 @@ class NeighborExpander:
             return {}
         neighbor_ids = [pk for pks in assignment.values() for pk in pks]
         neighbors = DocumentChunk.objects.in_bulk(neighbor_ids)
-        return {
-            seed.pk: stitch(
-                sorted(
-                    [seed, *(neighbors[pk] for pk in assignment[seed.pk])],
-                    key=lambda chunk: chunk.pk,
-                ),
+        result: dict[int, str] = {}
+        for seed in seeds:
+            if seed.pk not in assignment:
+                continue
+            survivors = [
+                chunk
+                for pk in assignment[seed.pk]
+                if (chunk := neighbors.get(pk)) is not None
+            ]
+            if not survivors:
+                continue
+            result[seed.pk] = stitch(
+                sorted([seed, *survivors], key=lambda chunk: chunk.pk),
             )
-            for seed in seeds
-            if seed.pk in assignment
-        }
+        return result
 
     def _ordered_ids(
         self,

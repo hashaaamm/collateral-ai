@@ -111,3 +111,11 @@ def test_expand_ignores_image_captions():
         for i in range(3)
     ]
     assert NeighborExpander(window=1).expand([caps[1]]) == {}
+
+
+@pytest.mark.django_db
+def test_expand_skips_seed_deleted_between_queries():
+    _, c = _doc_with_chunks(3)
+    seed = c[1]
+    DocumentChunk.objects.filter(pk=seed.pk).delete()
+    assert NeighborExpander(window=1).expand([seed]) == {}
