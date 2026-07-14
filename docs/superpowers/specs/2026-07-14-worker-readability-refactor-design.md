@@ -17,6 +17,30 @@ The layering story the refactor makes explicit:
 > **command = process boundary, service = DB state machine, pipeline/graph = compute flow,
 > sub-services = one capability each.**
 
+## Design patterns in play (interview vocabulary)
+
+These patterns are already present; the refactor makes each one visible rather than adding
+new ones:
+
+- **Facade** — `DocumentProcessingService.process()` and `MaterialGenerationService.generate()`
+  are single entry points hiding a multi-class subsystem; every caller (K8s command, eval
+  harness) enters through them. Strictly they are *application services acting as facades*:
+  unlike a pure GoF facade they are the only sanctioned entry and also own transactions and
+  status transitions. The refactor makes each facade method read as the flow it fronts.
+- **Pipeline** — ingestion is a linear step pipeline (the orchestrator method); generation's
+  pipeline is declared as LangGraph edges.
+- **State machine** — two levels: the DB status fields (`DocumentStatus`,
+  `GenerationStatus`) owned by the services, and LangGraph's conditional edge
+  (validate → repair / END) for the in-memory repair loop.
+- **Dependency injection** — `MaterialGenerationService` takes optional
+  embedder/retriever/model overrides; after the refactor the graph nodes receive an explicit
+  `GenerationDeps` instead of closing over variables.
+- **Strategy (seam)** — `GenerationModel.generate_structured` is provider-swappable behind
+  one interface (`vertex` today, per the grounding constraint).
+
+Deliberately absent: inheritance-based Template Method and a generic Step framework — plain
+composition was chosen over both to avoid indirection.
+
 ## Goals
 
 1. Each worker's end-to-end flow readable top-to-bottom in a single orchestrator.
@@ -139,7 +163,8 @@ The interview cheat sheet:
 
 - Two mermaid flow diagrams: ingestion (linear) and generation (with the validate ⇄ repair
   cycle and max-attempts exit).
-- The four-layer ownership one-liner.
+- The four-layer ownership one-liner and the "Design patterns in play" list (Facade,
+  Pipeline, State machine, Dependency injection, Strategy seam).
 - A table of failure/skip semantics (what exits 0, what exits non-zero, what K8s does).
 
 ### Untouched files
