@@ -75,6 +75,16 @@ def test_fact_fidelity_passes_facts_and_article_to_judge():
     assert "headline" in prompts[0]
 
 
+def test_fact_fidelity_rounds_fractional_scores_for_langsmith():
+    # LangSmith rejects feedback with more than 4 decimal places (e.g. 2/3).
+    score = evaluators.fact_fidelity(
+        _output(),
+        ["a", "b", "c"],
+        judge=lambda p: '{"score": 0.6666666666666666}',
+    )
+    assert score == 0.6667
+
+
 def test_fact_fidelity_without_facts_returns_one_without_judge_call():
     def judge(prompt):
         msg = "judge must not be called"

@@ -50,7 +50,9 @@ def _parse_score(raw: str) -> float:
 
 
 def _clamp(value: float) -> float:
-    return max(0.0, min(1.0, value))
+    # LangSmith rejects feedback scores with more than 4 decimal places, so
+    # judge fractions like 2/3 must be rounded before upload.
+    return round(max(0.0, min(1.0, value)), 4)
 
 
 def schema_valid(output: dict, template) -> bool:
