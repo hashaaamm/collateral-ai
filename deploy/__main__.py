@@ -44,6 +44,8 @@ if cfg.enable_email:
 if cfg.enable_payments:
     secrets.add("stripe-secret-key", cfg.stripe_secret_key_value)
     secrets.add("stripe-webhook-secret", cfg.stripe_webhook_secret_value)
+if cfg.enable_tracing:
+    secrets.add("langsmith-api-key", cfg.langsmith_api_key_value)
 secrets.add("database-url-private", database.private_url)
 
 if (
