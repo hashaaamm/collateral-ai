@@ -91,6 +91,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Signed GET URL so the browser can open the stored PDF (spec §5.3). */
         get: operations["companies_documents_view_url_retrieve"];
         put?: never;
         post?: never;

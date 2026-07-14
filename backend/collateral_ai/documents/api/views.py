@@ -61,6 +61,7 @@ class DocumentViewSet(
     @extend_schema(request=None, responses=DocumentViewUrlSerializer)
     @action(detail=True, methods=["get"], url_path="view-url")
     def view_url(self, request, pk=None, company_pk=None):
+        """Signed GET URL so the browser can open the stored PDF (spec §5.3)."""
         url = services.get_view_url(self.get_object())
         return Response(DocumentViewUrlSerializer({"url": url}).data)
 
