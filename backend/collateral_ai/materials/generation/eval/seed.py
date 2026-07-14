@@ -56,8 +56,7 @@ _PAIRS = [
         "sender_facts": [
             "Pulse ingests 5M spans per second with 15-second end-to-end trace "
             "latency.",
-            "Pulse's anomaly detection cut one customer's MTTR from 45 to 8 "
-            "minutes.",
+            "Pulse's anomaly detection cut one customer's MTTR from 45 to 8 minutes.",
             "Pulse retains high-cardinality traces for 30 days at $0.10 per GB.",
         ],
         "receiver_facts": [
