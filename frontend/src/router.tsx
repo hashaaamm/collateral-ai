@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 
 import { isAuthenticated } from "@/lib/auth";
+import { NotFoundScreen, RootErrorScreen } from "@/components/status-screens";
 import { LandingPage } from "@/routes/landing";
 import { LoginPage } from "@/routes/login";
 import { AppShell } from "@/components/app-shell";
@@ -119,7 +120,14 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({
+  routeTree,
+  // Unknown URLs render a chrome-less 404; errors above the shell (or before it
+  // mounts) render a chrome-less error screen. In-shell page errors are caught
+  // by the ErrorBoundary inside AppShell so the sidebar stays put.
+  defaultNotFoundComponent: NotFoundScreen,
+  defaultErrorComponent: RootErrorScreen,
+});
 
 // Register the router instance for full type-safety across the app.
 declare module "@tanstack/react-router" {

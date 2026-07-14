@@ -13,6 +13,8 @@ import {
 
 import { useCurrentUser } from "@/lib/api/queries";
 import { clearToken } from "@/lib/auth";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { InShellErrorScreen } from "@/components/status-screens";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", Icon: SquaresFour },
@@ -103,7 +105,13 @@ export function AppShell() {
       </aside>
 
       <main className="h-dvh flex-1 overflow-y-auto">
-        <Outlet />
+        <ErrorBoundary
+          fallback={(error, reset) => (
+            <InShellErrorScreen error={error} reset={reset} />
+          )}
+        >
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );
