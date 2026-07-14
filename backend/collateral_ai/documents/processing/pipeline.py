@@ -15,6 +15,7 @@ from collateral_ai.documents.processing.chunking import ChunkingService
 from collateral_ai.documents.processing.embeddings import EmbeddingService
 from collateral_ai.documents.processing.extraction import PdfExtractionService
 from collateral_ai.documents.processing.storage import StorageService
+from collateral_ai.documents.processing.summarization import DocumentSummaryService
 from collateral_ai.documents.statuses import DocumentStatus
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class DocumentProcessingService:
         self.extractor = PdfExtractionService(storage=self.storage)
         self.chunker = ChunkingService()
         self.embedder = EmbeddingService()
+        self.summarizer = DocumentSummaryService()
 
     def process(self, document_id: int, *, force: bool = False) -> None:
         t0 = time.monotonic()
@@ -77,8 +79,12 @@ class DocumentProcessingService:
             t = time.monotonic()
             self._save_chunks(document, payloads, embeddings)
             logger.info("timing: save chunks %.2fs", time.monotonic() - t)
+            t = time.monotonic()
+            summary = self._summarize(payloads)
+            logger.info("timing: summary %.2fs", time.monotonic() - t)
             Document.objects.filter(id=document.id).update(
                 status=DocumentStatus.PROCESSED,
+                summary=summary,
                 page_count=extraction.page_count,
                 chunks_count=len(payloads),
                 tables_count=len(extraction.tables),
@@ -174,3 +180,11 @@ class DocumentProcessingService:
             ],
             batch_size=500,
         )
+
+    def _summarize(self, payloads: list[dict[str, Any]]) -> str:
+        """Best-effort: a missing summary must never fail ingestion (spec §5.2)."""
+        try:
+            return self.summarizer.summarize([p["content"] for p in payloads])
+        except Exception:  # noqa: BLE001 — any summarizer error degrades to no summary
+            logger.warning("summary generation failed; continuing without one")
+            return ""
