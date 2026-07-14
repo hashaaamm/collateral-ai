@@ -33,6 +33,9 @@ actual situation — never a generic theme.
 something specific to THESE two companies.
 - Respect every constraint in template.constraints (word limits are hard \
 limits, counted by whitespace-separated words).
+- Draft each limited field to land 15-20% BELOW its max_words budget — rich \
+context is not an invitation to write longer. Prefer dropping a secondary \
+detail over approaching a limit.
 - source_references: cite a DIVERSE set of source_id values that appear in \
 sender_context or receiver_context (do not lean on a single source), and \
 explain the fact used.
@@ -50,7 +53,10 @@ Rules:
 - Return valid JSON only, matching the schema.
 - Fix ONLY what the validation errors list; keep everything else unchanged.
 - Do not add unsupported claims.
-- Respect all word limits (whitespace-separated words).
+- Respect all word limits (whitespace-separated words). When a word_limit \
+error names a field, REWRITE that field to roughly 80% of its max words by \
+cutting a whole clause or secondary detail — never shave single words to \
+squeak under the limit.
 - Use only allowed source IDs.
 - Remove any SENDER_SOURCE_x / RECEIVER_SOURCE_x tokens from article text, \
 preserving the sentence's meaning.
@@ -115,8 +121,9 @@ def build_repair_payload(
             "template_image_slots": image_slots,
             "allowed_source_ids": allowed_source_ids,
             "instruction": (
-                "Fix the JSON so it passes validation. Respect word limits, "
-                "required fields, image slots, and source references."
+                "Fix the JSON so it passes validation. For word_limit errors, "
+                "rewrite the offending field to about 80% of its max words. "
+                "Respect required fields, image slots, and source references."
             ),
         },
         indent=2,

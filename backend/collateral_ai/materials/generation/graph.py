@@ -41,6 +41,28 @@ class GenerationState(TypedDict, total=False):
     context_snapshot: dict
 
 
+def _require_chunks(material, sender_chunks, receiver_chunks) -> None:
+    for role, chunks, company in (
+        ("sender", sender_chunks, material.sender_company),
+        ("receiver", receiver_chunks, material.receiver_company),
+    ):
+        if not chunks:
+            msg = (
+                f"No processed document chunks for {role} company "
+                f"{company.name!r} — upload and process documents first."
+            )
+            raise ValueError(msg)
+
+
+def _document_summaries(sender_chunks, receiver_chunks) -> tuple[list, list]:
+    if not settings.MATERIAL_INCLUDE_DOC_SUMMARIES:
+        return [], []
+    return (
+        fetch_document_summaries(sender_chunks),
+        fetch_document_summaries(receiver_chunks),
+    )
+
+
 def _stamp(output: dict, template, material) -> dict:
     output["template_id"] = template.slug
     output["theme"] = dict(template.theme)
@@ -85,22 +107,10 @@ def build_generation_graph(
             source_prefix="RECEIVER_SOURCE",
             top_k=top_k,
         )
-        for role, chunks, company in (
-            ("sender", sender_chunks, material.sender_company),
-            ("receiver", receiver_chunks, material.receiver_company),
-        ):
-            if not chunks:
-                msg = (
-                    f"No processed document chunks for {role} company "
-                    f"{company.name!r} — upload and process documents first."
-                )
-                raise ValueError(msg)
-        include_summaries = bool(settings.MATERIAL_INCLUDE_DOC_SUMMARIES)
-        sender_summaries = (
-            fetch_document_summaries(sender_chunks) if include_summaries else []
-        )
-        receiver_summaries = (
-            fetch_document_summaries(receiver_chunks) if include_summaries else []
+        _require_chunks(material, sender_chunks, receiver_chunks)
+        sender_summaries, receiver_summaries = _document_summaries(
+            sender_chunks,
+            receiver_chunks,
         )
         source_map = {c.source_id: c for c in [*sender_chunks, *receiver_chunks]}
         allowed_ids = set(source_map)
@@ -156,6 +166,11 @@ def build_generation_graph(
         return {"is_valid": result.is_valid, "validation_errors": result.errors}
 
     def repair(state: GenerationState) -> dict:
+        from collateral_ai.materials.generation.validation import trim_to_word_limits
+
+        trimmed = trim_to_word_limits(state["output"], state["validation_errors"])
+        if trimmed is not None:
+            return {"output": trimmed, "attempts": state["attempts"] + 1}
         output = model.generate_structured(
             system_instruction=REPAIR_SYSTEM_INSTRUCTION,
             user_input=build_repair_payload(
