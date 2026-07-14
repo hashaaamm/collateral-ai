@@ -40,7 +40,11 @@ class WorkerCluster(pulumi.ComponentResource):
                 services_secondary_range_name="gke-services",
             ),
             private_cluster_config=gcp.container.ClusterPrivateClusterConfigArgs(
-                enable_private_nodes=True,
+                # Public nodes: worker pods need internet egress (LangSmith trace
+                # export, any non-Google API) and the VPC has no Cloud NAT (a
+                # $0-idle choice). Inbound stays IAM/RBAC-gated — same POC posture
+                # as the public control-plane endpoint below.
+                enable_private_nodes=False,
                 enable_private_endpoint=False,
                 master_ipv4_cidr_block=cfg.gke_master_cidr,
                 master_global_access_config=gcp.container.ClusterPrivateClusterConfigMasterGlobalAccessConfigArgs(
