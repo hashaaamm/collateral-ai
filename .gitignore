@@ -31,3 +31,12 @@ deploy/venv/
 # OS / editor
 .DS_Store
 *.log
+
+# Local-only: AI workflow artifacts + scaffolding/setup helpers (kept on disk, out of the repo)
+docs/superpowers/
+mvp-frontend-architecture/
+PREREQUISITES.md
+SETUP-GUIDE.md
+scripts/preflight.sh
+scripts/set-github-secrets.sh
+scripts/smoke-test.sh

@@ -76,14 +76,12 @@ backend/     Django project (apps live in backend/collateral_ai/: companies, doc
              materials, dashboard, users)
 frontend/    React + Vite SPA
 deploy/      Pulumi program (components/ per resource group)
-scripts/     Operational helpers (GitHub secrets, local GCS emulator init)
 justfile     Task runner — `just` to list commands
 ```
 
 ## Local development
 
-Prerequisites: Docker and [`just`](https://github.com/casey/just) — see
-[PREREQUISITES.md](PREREQUISITES.md) for the full list.
+Prerequisites: Docker and [`just`](https://github.com/casey/just).
 
 ```bash
 just up               # django + postgres + GCS emulator + frontend (Vite dev server)
@@ -113,11 +111,6 @@ long-lived keys). Path filters decide what deploys: backend changes build and de
 Run; frontend changes build the SPA, sync it to the GCS bucket, and invalidate the CDN.
 Database migrations run through the manual **Run Job** workflow.
 
-First-time environment setup: work through [PREREQUISITES.md](PREREQUISITES.md), then
-[SETUP-GUIDE.md](SETUP-GUIDE.md).
-
 ## More docs
 
 - [AGENTS.md](AGENTS.md) — conventions for agents and contributors
-- [SETUP-GUIDE.md](SETUP-GUIDE.md) — step-by-step runbook for the parts Pulumi can't do
-- [PREREQUISITES.md](PREREQUISITES.md) — accounts, tools, and one-time setup
