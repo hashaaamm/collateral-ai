@@ -31,7 +31,12 @@ export async function uploadDocument({
 }): Promise<Document> {
   const created = await api.POST("/api/companies/{company_pk}/documents/", {
     params: { path: { company_pk: companyId } },
-    body: { file_name: file.name, content_type: file.type },
+    // The schema now types content_type as the allowed-MIME-types enum; the
+    // browser's File.type is a plain string, so cast (server still validates).
+    body: {
+      file_name: file.name,
+      content_type: file.type as components["schemas"]["DocumentCreate"]["content_type"],
+    },
   });
   const createStatus = created.response?.status;
   if (created.error || !created.data) {
