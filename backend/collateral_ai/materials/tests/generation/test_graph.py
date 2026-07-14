@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from collateral_ai.documents.tests.factories import DocumentFactory
+from collateral_ai.materials.generation.graph import GenerationDeps
 from collateral_ai.materials.generation.graph import build_generation_graph
 from collateral_ai.materials.generation.validation import OutputValidator
 
@@ -127,16 +128,10 @@ def test_graph_repairs_once_then_succeeds():
     model.generate_structured.side_effect = [invalid, _valid_output()]
     embedder, retriever, validator = _services(model)
 
-    graph = build_generation_graph(
-        embedder=embedder,
-        retriever=retriever,
-        model=model,
-        validator=validator,
-        max_repair_attempts=2,
-    )
+    graph = _graph(embedder, retriever, model, validator)
     final = graph.invoke(_initial_state(tmpl, material))
 
-    assert final["is_valid"] is True
+    assert final["validation"].is_valid is True
     assert final["attempts"] == 1
     assert model.generate_structured.call_count == 2
 
@@ -163,16 +158,10 @@ def test_graph_repairs_inline_citation_token_then_succeeds():
     model.generate_structured.side_effect = [output_with_inline_token, _valid_output()]
     embedder, retriever, validator = _services(model)
 
-    graph = build_generation_graph(
-        embedder=embedder,
-        retriever=retriever,
-        model=model,
-        validator=validator,
-        max_repair_attempts=2,
-    )
+    graph = _graph(embedder, retriever, model, validator)
     final = graph.invoke(_initial_state(tmpl, material))
 
-    assert final["is_valid"] is True
+    assert final["validation"].is_valid is True
     assert final["attempts"] == 1
     assert model.generate_structured.call_count == 2
 
@@ -194,16 +183,10 @@ def test_graph_fails_after_max_attempts():
     model.generate_structured.return_value = invalid
     embedder, retriever, validator = _services(model)
 
-    graph = build_generation_graph(
-        embedder=embedder,
-        retriever=retriever,
-        model=model,
-        validator=validator,
-        max_repair_attempts=2,
-    )
+    graph = _graph(embedder, retriever, model, validator)
     final = graph.invoke(_initial_state(tmpl, material))
 
-    assert final["is_valid"] is False
+    assert final["validation"].is_valid is False
     assert final["attempts"] == 2
 
 
@@ -215,13 +198,7 @@ def test_graph_stamps_image_slots_from_template_no_slots():
     model.generate_structured.return_value = _valid_output()
     embedder, retriever, validator = _services(model)
 
-    graph = build_generation_graph(
-        embedder=embedder,
-        retriever=retriever,
-        model=model,
-        validator=validator,
-        max_repair_attempts=2,
-    )
+    graph = _graph(embedder, retriever, model, validator)
     final = graph.invoke(_initial_state(tmpl, material))
 
     assert final["output"]["image_slots"] == []
@@ -248,13 +225,7 @@ def test_graph_stamps_image_slots_from_template_with_slots():
     model.generate_structured.return_value = output_with_garbage_slots
     embedder, retriever, validator = _services(model)
 
-    graph = build_generation_graph(
-        embedder=embedder,
-        retriever=retriever,
-        model=model,
-        validator=validator,
-        max_repair_attempts=2,
-    )
+    graph = _graph(embedder, retriever, model, validator)
     final = graph.invoke(_initial_state(tmpl, material))
 
     assert final["output"]["image_slots"] == [
@@ -263,13 +234,15 @@ def test_graph_stamps_image_slots_from_template_with_slots():
     ]
 
 
-def _graph(embedder, retriever, model, validator):
+def _graph(embedder, retriever, model, validator, max_repair_attempts=2):
     return build_generation_graph(
-        embedder=embedder,
-        retriever=retriever,
-        model=model,
-        validator=validator,
-        max_repair_attempts=2,
+        GenerationDeps(
+            embedder=embedder,
+            retriever=retriever,
+            model=model,
+            validator=validator,
+            max_repair_attempts=max_repair_attempts,
+        ),
     )
 
 
@@ -300,7 +273,7 @@ def test_graph_passes_document_summaries_to_generation():
     )
     expected = [{"file_name": "sender.pdf", "summary": "Sender doc summary."}]
     assert payload["sender_document_summaries"] == expected
-    assert final["context_snapshot"]["sender_document_summaries"] == expected
+    assert final["retrieval"].context_snapshot["sender_document_summaries"] == expected
 
 
 @pytest.mark.django_db
@@ -344,16 +317,10 @@ def test_graph_repairs_word_limit_deterministically_without_llm():
     model.generate_structured.return_value = over
     embedder, retriever, validator = _services(model)
 
-    graph = build_generation_graph(
-        embedder=embedder,
-        retriever=retriever,
-        model=model,
-        validator=validator,
-        max_repair_attempts=2,
-    )
+    graph = _graph(embedder, retriever, model, validator)
     final = graph.invoke(_initial_state(tmpl, material))
 
-    assert final["is_valid"] is True
+    assert final["validation"].is_valid is True
     assert (
         final["output"]["article"]["body_sections"][0]["text"] == "Keep this sentence."
     )
