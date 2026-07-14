@@ -79,3 +79,40 @@ def test_retrieve_returns_empty_for_company_without_chunks():
         top_k=8,
     )
     assert results == []
+
+
+def test_retrieve_expands_seed_with_neighbors(settings):
+    settings.MATERIAL_NEIGHBOR_WINDOW = 1
+    company = CompanyFactory()
+    doc = DocumentFactory(company=company)
+    DocumentChunkFactory(document=doc, content="before", embedding=embedding(-1.0))
+    DocumentChunkFactory(document=doc, content="seed", embedding=embedding(1.0))
+    DocumentChunkFactory(document=doc, content="after", embedding=embedding(-1.0))
+    results = RetrievalService().retrieve(
+        company_id=company.pk,
+        query_embedding=embedding(1.0),
+        source_role=SourceRole.SENDER,
+        source_prefix="SENDER_SOURCE",
+        top_k=1,
+    )
+    assert len(results) == 1
+    assert results[0].content == "seed"
+    assert results[0].expanded_content == "before\n\nseed\n\nafter"
+    assert results[0].to_prompt_dict()["content"] == "before\n\nseed\n\nafter"
+
+
+def test_retrieve_window_zero_keeps_bare_chunks(settings):
+    settings.MATERIAL_NEIGHBOR_WINDOW = 0
+    company = CompanyFactory()
+    doc = DocumentFactory(company=company)
+    DocumentChunkFactory(document=doc, content="before", embedding=embedding(-1.0))
+    DocumentChunkFactory(document=doc, content="seed", embedding=embedding(1.0))
+    results = RetrievalService().retrieve(
+        company_id=company.pk,
+        query_embedding=embedding(1.0),
+        source_role=SourceRole.SENDER,
+        source_prefix="SENDER_SOURCE",
+        top_k=1,
+    )
+    assert results[0].expanded_content == "seed"
+    assert results[0].to_prompt_dict()["content"] == "seed"
