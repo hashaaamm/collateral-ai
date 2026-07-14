@@ -1,5 +1,7 @@
 from http import HTTPStatus
 
+import pytest
+from django.db import transaction
 from rest_framework.exceptions import NotFound
 
 from collateral_ai.core.exceptions import DomainError
@@ -42,3 +44,12 @@ def test_non_api_exceptions_return_none():
 
 def test_str_is_the_detail():
     assert str(DomainError("nope")) == "nope"
+
+
+@pytest.mark.django_db
+def test_domain_error_marks_transaction_for_rollback():
+    with transaction.atomic():
+        api_exception_handler(DomainError(), context={})
+        needs_rollback = transaction.get_connection().needs_rollback
+        transaction.set_rollback(False)  # reset so the test block exits cleanly
+    assert needs_rollback
