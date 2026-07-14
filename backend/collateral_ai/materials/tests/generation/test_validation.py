@@ -221,7 +221,7 @@ def test_trim_drops_trailing_sentences_to_fit():
     assert trimmed["article"]["body_sections"][0]["text"] == "First sentence stays."
     # original untouched
     assert output["article"]["body_sections"][0]["text"].startswith(
-        "First sentence stays. word"
+        "First sentence stays. word",
     )
     revalidated = OutputValidator().validate(
         output=trimmed,
