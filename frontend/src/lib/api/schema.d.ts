@@ -928,6 +928,7 @@ export interface operations {
     materials_list: {
         parameters: {
             query?: {
+                /** @description Sender OR receiver company id */
                 company?: number;
                 generation_status?: string;
                 receiver?: number;
