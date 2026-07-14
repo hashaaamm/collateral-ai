@@ -18,21 +18,21 @@ class DomainError(Exception):
         super().__init__(self.detail)
 
 
-class StorageNotConfigured(DomainError):
+class StorageNotConfiguredError(DomainError):
     """GCS is not configured (no GS_BUCKET_NAME) — feature unavailable."""
 
     status_code = 503
     default_detail = "Storage is not configured in this environment."
 
 
-class GenerationInProgress(DomainError):
+class GenerationInProgressError(DomainError):
     """A fresh generation run is already active for this material."""
 
     status_code = 409
     default_detail = "Generation is already in progress."
 
 
-class NoStoredFile(DomainError):
+class NoStoredFileError(DomainError):
     """The document row exists but no object was ever stored for it."""
 
     status_code = 404
