@@ -75,7 +75,15 @@ export function CompaniesListPage() {
               <CompanyLogo name={c.name} logoUrl={c.logo_url} />
               <span className="text-[13.5px] font-semibold text-ink">{c.name}</span>
             </span>
-            <span className="text-[13px] text-body">{c.industry || "—"}</span>
+            <span className="text-[13px] text-body">
+              {c.industry ? (
+                <span className="rounded-full bg-brand-soft px-[10px] py-[3px] text-[11.5px] font-semibold text-brand">
+                  {c.industry}
+                </span>
+              ) : (
+                "—"
+              )}
+            </span>
             <span className="truncate text-[13px] text-subtext">{c.website || "—"}</span>
             <span className="text-[13px] text-subtext">{formatRelativeDay(c.last_updated)}</span>
             <CaretRight size={14} className="text-faint" />
