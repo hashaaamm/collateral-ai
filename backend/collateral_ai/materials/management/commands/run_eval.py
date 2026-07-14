@@ -149,6 +149,7 @@ class Command(BaseCommand):
             ],
             experiment_prefix=label,
             client=client,
+            max_concurrency=1,
         )
         experiment_name = getattr(results, "experiment_name", label)
         msg = f"Uploaded experiment '{experiment_name}' (dataset={options['name']})"

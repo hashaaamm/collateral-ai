@@ -7,10 +7,49 @@ live request path.
 from __future__ import annotations
 
 import json
+import re
+import time
 
 from django.conf import settings
 
 from collateral_ai.materials.generation.validation import OutputValidator
+
+_SCORE_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def _parse_score(raw: str) -> float:
+    """Robustly extract a 0..1 score from noisy/flaky judge output.
+
+    Handles fenced JSON, bare JSON, plain numbers embedded in prose, and
+    falls back to 0.0 (never raises) when nothing parseable is found.
+    """
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:]
+        text = text.strip()
+
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict) and "score" in parsed:
+            return _clamp(float(parsed["score"]))
+        if isinstance(parsed, (int, float)):
+            return _clamp(float(parsed))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+    match = _SCORE_RE.search(text)
+    if match:
+        try:
+            return _clamp(float(match.group()))
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _clamp(value: float) -> float:
+    return max(0.0, min(1.0, value))
 
 
 def schema_valid(output: dict, template) -> bool:
@@ -49,6 +88,14 @@ receiver_context: {receiver}
 """
 
 
+_MAX_JUDGE_ATTEMPTS = 3
+
+
+def _is_transient_error(exc: Exception) -> bool:
+    haystack = f"{type(exc).__name__} {exc}".lower()
+    return "429" in haystack or "resourceexhausted" in haystack
+
+
 def _default_judge(prompt: str) -> str:
     from langchain_core.messages import HumanMessage
     from langchain_google_vertexai import ChatVertexAI
@@ -59,7 +106,14 @@ def _default_judge(prompt: str) -> str:
         location=settings.VERTEX_LOCATION,
         temperature=0.0,
     )
-    return chat.invoke([HumanMessage(content=prompt)]).content
+    for attempt in range(1, _MAX_JUDGE_ATTEMPTS + 1):
+        try:
+            return chat.invoke([HumanMessage(content=prompt)]).content
+        except Exception as exc:  # noqa: BLE001 - judge must never raise
+            if attempt >= _MAX_JUDGE_ATTEMPTS or not _is_transient_error(exc):
+                return ""
+            time.sleep(2 * attempt)
+    return ""
 
 
 def groundedness_judge(output: dict, context: dict, *, judge=None) -> float:
@@ -69,11 +123,7 @@ def groundedness_judge(output: dict, context: dict, *, judge=None) -> float:
         sender=json.dumps(context.get("sender_context", [])),
         receiver=json.dumps(context.get("receiver_context", [])),
     )
-    raw = judge(prompt).strip()
-    try:
-        return float(json.loads(raw)["score"])
-    except (json.JSONDecodeError, KeyError, TypeError):
-        return float(raw)
+    return _parse_score(judge(prompt))
 
 
 _SPECIFICITY_PROMPT = """You grade how SPECIFIC and concrete B2B marketing copy is.
@@ -89,8 +139,4 @@ article: {article}
 def specificity_judge(output: dict, *, judge=None) -> float:
     judge = judge or _default_judge
     prompt = _SPECIFICITY_PROMPT.format(article=json.dumps(output.get("article", {})))
-    raw = judge(prompt).strip()
-    try:
-        return float(json.loads(raw)["score"])
-    except (json.JSONDecodeError, KeyError, TypeError):
-        return float(raw)
+    return _parse_score(judge(prompt))

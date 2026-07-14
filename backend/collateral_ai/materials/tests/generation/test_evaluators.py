@@ -46,3 +46,69 @@ def test_groundedness_judge_parses_injected_score():
 def test_specificity_judge_parses_injected_score():
     score = evaluators.specificity_judge(_output(), judge=lambda p: "0.6")
     assert score == 0.6
+
+
+def test_parse_score_fenced_json():
+    raw = '```json\n{"score": 0.7}\n```'
+    assert evaluators._parse_score(raw) == 0.7  # noqa: SLF001
+
+
+def test_parse_score_bare_number():
+    assert evaluators._parse_score("0.4") == 0.4  # noqa: SLF001
+
+
+def test_parse_score_number_in_prose():
+    assert evaluators._parse_score("Score: 0.9 out of 1") == 0.9  # noqa: SLF001
+
+
+def test_parse_score_garbage_returns_zero():
+    assert evaluators._parse_score("n/a") == 0.0  # noqa: SLF001
+
+
+def test_parse_score_clamps_out_of_range():
+    assert evaluators._parse_score("1.5") == 1.0  # noqa: SLF001
+
+
+def test_default_judge_retries_on_rate_limit_then_succeeds(monkeypatch):
+    monkeypatch.setattr(evaluators.time, "sleep", lambda _seconds: None)
+
+    calls = {"n": 0}
+
+    class _FakeResponse:
+        content = "0.5"
+
+    class _FakeChat:
+        def invoke(self, _messages):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                msg = "429 ResourceExhausted"
+                raise RuntimeError(msg)
+            return _FakeResponse()
+
+    monkeypatch.setattr(
+        "langchain_google_vertexai.ChatVertexAI",
+        lambda **_kwargs: _FakeChat(),
+    )
+
+    result = evaluators._default_judge("prompt")  # noqa: SLF001
+
+    assert result == "0.5"
+    assert calls["n"] == 3
+
+
+def test_default_judge_gives_up_after_max_attempts(monkeypatch):
+    monkeypatch.setattr(evaluators.time, "sleep", lambda _seconds: None)
+
+    class _FakeChat:
+        def invoke(self, _messages):
+            msg = "429 rate limited"
+            raise RuntimeError(msg)
+
+    monkeypatch.setattr(
+        "langchain_google_vertexai.ChatVertexAI",
+        lambda **_kwargs: _FakeChat(),
+    )
+
+    result = evaluators._default_judge("prompt")  # noqa: SLF001
+
+    assert result == ""
