@@ -21,6 +21,6 @@ def trigger_processing(document) -> None:
         args=["manage.py", "process_document", "--document-id", str(document.pk)],
         backoff_limit=1,
         active_deadline_seconds=900,
-        cpu="500m",
-        memory="512Mi",
+        cpu="2",
+        memory="2Gi",
     )
