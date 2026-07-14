@@ -58,6 +58,41 @@ def test_specificity_judge_parses_injected_score():
     assert score == 0.6
 
 
+def test_fact_fidelity_passes_facts_and_article_to_judge():
+    prompts = []
+
+    def judge(prompt):
+        prompts.append(prompt)
+        return '{"score": 0.67}'
+
+    score = evaluators.fact_fidelity(
+        _output(),
+        ["sub-second requires the Enterprise tier"],
+        judge=judge,
+    )
+    assert score == 0.67
+    assert "sub-second requires the Enterprise tier" in prompts[0]
+    assert "headline" in prompts[0]
+
+
+def test_fact_fidelity_rounds_fractional_scores_for_langsmith():
+    # LangSmith rejects feedback with more than 4 decimal places (e.g. 2/3).
+    score = evaluators.fact_fidelity(
+        _output(),
+        ["a", "b", "c"],
+        judge=lambda p: '{"score": 0.6666666666666666}',
+    )
+    assert score == 0.6667
+
+
+def test_fact_fidelity_without_facts_returns_one_without_judge_call():
+    def judge(prompt):
+        msg = "judge must not be called"
+        raise AssertionError(msg)
+
+    assert evaluators.fact_fidelity(_output(), [], judge=judge) == 1.0
+
+
 def test_parse_score_fenced_json():
     raw = '```json\n{"score": 0.7}\n```'
     assert evaluators._parse_score(raw) == 0.7  # noqa: SLF001

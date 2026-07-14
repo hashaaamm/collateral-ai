@@ -7,6 +7,7 @@ Not part of the live path. Uploads a scored, named experiment to LangSmith
 from __future__ import annotations
 
 import subprocess
+import time
 
 from django.core.management.base import BaseCommand
 
@@ -26,8 +27,27 @@ def _git_sha() -> str:
         return "local"
 
 
+_MAX_GENERATE_ATTEMPTS = 3
+_GENERATE_BACKOFF_SECONDS = 30
+
+
+def generate_with_retry(material_id: int) -> None:
+    """Ride out per-minute Vertex quota (429) instead of zeroing the example."""
+    for attempt in range(1, _MAX_GENERATE_ATTEMPTS + 1):
+        try:
+            MaterialGenerationService().generate(material_id, force=True)
+        except Exception as exc:
+            if attempt >= _MAX_GENERATE_ATTEMPTS or not evaluators.is_transient_error(
+                exc,
+            ):
+                raise
+            time.sleep(_GENERATE_BACKOFF_SECONDS * attempt)
+        else:
+            return
+
+
 def evaluate_one(material_id: int, *, judge=None) -> dict:
-    MaterialGenerationService().generate(material_id, force=True)
+    generate_with_retry(material_id)
     material = MarketingMaterial.objects.select_related("template").get(pk=material_id)
     output = material.output_json or {}
     context = material.retrieved_context or {}
@@ -58,7 +78,7 @@ def _allowed_ids(context: dict) -> set[str]:
 def _target(inputs: dict) -> dict:
     """LangSmith target: run generation for one dataset example and return outputs."""
     material_id = inputs["material_id"]
-    MaterialGenerationService().generate(material_id, force=True)
+    generate_with_retry(material_id)
     material = MarketingMaterial.objects.select_related("template").get(pk=material_id)
     return {
         "output": material.output_json or {},
@@ -134,6 +154,19 @@ def _eval_specificity(run, example=None):
     return {"key": "specificity", "score": score}
 
 
+def _eval_fact_fidelity(run, example=None):
+    """Overclaiming judge; only meaningful for examples carrying expected_facts."""
+    expected_facts = (getattr(example, "inputs", None) or {}).get("expected_facts")
+    if not expected_facts:
+        return {"key": "fact_fidelity", "score": None, "comment": "no expected_facts"}
+    outputs = run.outputs or {}
+    output = outputs.get("output")
+    if not output:
+        return {"key": "fact_fidelity", "score": 0.0}
+    score = evaluators.fact_fidelity(output, expected_facts)
+    return {"key": "fact_fidelity", "score": score}
+
+
 class Command(BaseCommand):
     help = "Run generation over the golden dataset and upload a scored experiment"
 
@@ -157,6 +190,7 @@ class Command(BaseCommand):
                 _eval_no_inline_citations,
                 _eval_groundedness,
                 _eval_specificity,
+                _eval_fact_fidelity,
             ],
             experiment_prefix=label,
             client=client,

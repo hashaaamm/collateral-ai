@@ -50,7 +50,9 @@ def _parse_score(raw: str) -> float:
 
 
 def _clamp(value: float) -> float:
-    return max(0.0, min(1.0, value))
+    # LangSmith rejects feedback scores with more than 4 decimal places, so
+    # judge fractions like 2/3 must be rounded before upload.
+    return round(max(0.0, min(1.0, value)), 4)
 
 
 def schema_valid(output: dict, template) -> bool:
@@ -104,7 +106,7 @@ receiver_context: {receiver}
 _MAX_JUDGE_ATTEMPTS = 3
 
 
-def _is_transient_error(exc: Exception) -> bool:
+def is_transient_error(exc: Exception) -> bool:
     haystack = f"{type(exc).__name__} {exc}".lower()
     return "429" in haystack or "resourceexhausted" in haystack
 
@@ -130,9 +132,10 @@ def _default_judge(prompt: str) -> str:
                 config=types.GenerateContentConfig(temperature=0.0),
             )
         except Exception as exc:  # noqa: BLE001 - judge must never raise
-            if attempt >= _MAX_JUDGE_ATTEMPTS or not _is_transient_error(exc):
+            if attempt >= _MAX_JUDGE_ATTEMPTS or not is_transient_error(exc):
                 return ""
-            time.sleep(2 * attempt)
+            # Vertex quota is per-minute; short sleeps just re-hit the window.
+            time.sleep(15 * attempt)
         else:
             return response.text or ""
     return ""
@@ -161,4 +164,28 @@ article: {article}
 def specificity_judge(output: dict, *, judge=None) -> float:
     judge = judge or _default_judge
     prompt = _SPECIFICITY_PROMPT.format(article=json.dumps(output.get("article", {})))
+    return _parse_score(judge(prompt))
+
+
+_FACT_FIDELITY_PROMPT = """You grade B2B marketing copy for OVERCLAIMING.
+Each expected fact below pairs a claim with the qualifier/limitation that makes it
+honest. For each fact, grade 1 if the article either states the claim together with
+its qualifier OR omits the claim entirely; grade 0 if the article states the claim
+WITHOUT its qualifier (overclaiming). Return ONLY JSON:
+{{"score": <fraction of facts graded 1, number 0..1>}}.
+
+expected_facts: {facts}
+article: {article}
+"""
+
+
+def fact_fidelity(output: dict, expected_facts: list[str], *, judge=None) -> float:
+    """1.0 = no overclaiming against the expected claim+qualifier facts."""
+    if not expected_facts:
+        return 1.0
+    judge = judge or _default_judge
+    prompt = _FACT_FIDELITY_PROMPT.format(
+        facts=json.dumps(expected_facts),
+        article=json.dumps(output.get("article", {})),
+    )
     return _parse_score(judge(prompt))
