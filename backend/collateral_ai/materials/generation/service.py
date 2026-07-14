@@ -1,5 +1,8 @@
 """Worker 2 orchestration: claim → LangGraph pipeline → save.
 
+Ownership split: this service owns the DB state machine (claim, COMPLETED /
+FAILED writes); graph.py owns compute and never touches the database rows.
+
 State machine rules (spec §6.3): claim is its own short transaction so the row
 lock is never held during the multi-minute pipeline; completed/processing
 without --force skip with exit 0; review_status is never touched here.
@@ -14,6 +17,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from collateral_ai.documents.processing.embeddings import EmbeddingService
+from collateral_ai.materials.generation.graph import GenerationDeps
 from collateral_ai.materials.generation.graph import build_generation_graph
 from collateral_ai.materials.generation.model import GenerationModel
 from collateral_ai.materials.generation.retrieval import RetrievalService
@@ -93,14 +97,14 @@ class MaterialGenerationService:
         return material
 
     def _run_pipeline(self, material: MarketingMaterial, *, top_k: int) -> None:
-        graph = build_generation_graph(
+        deps = GenerationDeps(
             embedder=self.embedder,
             retriever=self.retriever,
             model=self.model,
             validator=self.validator,
             max_repair_attempts=self.max_repair_attempts,
         )
-        final = graph.invoke(
+        final = build_generation_graph(deps).invoke(
             {
                 "material_id": material.pk,
                 "material": material,
@@ -110,63 +114,47 @@ class MaterialGenerationService:
             },
         )
         output = final["output"]
-        context_snapshot = final["context_snapshot"]
-        source_map = final["source_map"]
-        if not final["is_valid"]:
+        result = final["validation"]
+        retrieval = final["retrieval"]
+        if not result.is_valid:
             MarketingMaterial.objects.filter(pk=material.pk).update(
                 output_json=output,
-                validation_result={
-                    "is_valid": False,
-                    "errors": final["validation_errors"],
-                },
-                retrieved_context=context_snapshot,
+                validation_result=result.to_dict(),
+                retrieved_context=retrieval.context_snapshot,
                 updated_at=timezone.now(),
             )
-            msg = f"Generated output failed validation: {final['validation_errors']}"
+            msg = f"Generated output failed validation: {result.errors}"
             raise ValueError(msg)
-
-        result = self.validator.validate(
-            output=output,
-            constraints=material.template.constraints,
-            image_slots=material.template.image_slots,
-            allowed_source_ids=final["allowed_ids"],
-        )
-        self._save_completed(material, output, result, context_snapshot, source_map)
+        self._save_completed(material, output, result, retrieval)
 
     @transaction.atomic
-    def _save_completed(
-        self,
-        material,
-        output: dict,
-        result,
-        context_snapshot: dict,
-        source_map: dict,
-    ) -> None:
+    def _save_completed(self, material, output: dict, result, retrieval) -> None:
         now = timezone.now()
         MarketingMaterial.objects.filter(pk=material.pk).update(
             generation_status=GenerationStatus.COMPLETED,
             output_json=output,
             validation_result=result.to_dict(),
-            retrieved_context=context_snapshot,
+            retrieved_context=retrieval.context_snapshot,
             error_message="",
             completed_at=now,
             updated_at=now,
         )
         GenerationSource.objects.filter(material=material).delete()
-        # Strict source validation (Task 7) guarantees every cited id maps.
-        GenerationSource.objects.bulk_create(
-            [
+        # Source validation guarantees every cited id maps to a retrieved chunk.
+        rows = []
+        for ref in output["source_references"]:
+            src = retrieval.source_map[ref["source_id"]]
+            rows.append(
                 GenerationSource(
                     material=material,
-                    company_id=source_map[ref["source_id"]].company_id,
-                    document_id=source_map[ref["source_id"]].document_id,
-                    chunk_id=source_map[ref["source_id"]].chunk_id,
-                    source_role=source_map[ref["source_id"]].source_role,
-                    page_number=source_map[ref["source_id"]].page_number,
-                    snippet=source_map[ref["source_id"]].content[:500],
+                    company_id=src.company_id,
+                    document_id=src.document_id,
+                    chunk_id=src.chunk_id,
+                    source_role=src.source_role,
+                    page_number=src.page_number,
+                    snippet=src.content[:500],
                     used_fact=ref["used_fact"][:1000],
-                    relevance_score=source_map[ref["source_id"]].relevance_score,
-                )
-                for ref in output["source_references"]
-            ],
-        )
+                    relevance_score=src.relevance_score,
+                ),
+            )
+        GenerationSource.objects.bulk_create(rows)
