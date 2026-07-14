@@ -41,6 +41,34 @@ built in.
 All GCP infrastructure changes go through Pulumi in `deploy/` — never the console or ad-hoc
 `gcloud`.
 
+## Diagrams
+
+Written walkthroughs for each diagram live in [docs/diagram-context.md](docs/diagram-context.md).
+
+### High-level architecture
+
+![High-level architecture](docs/diagrams/high-level-architecture.png)
+
+### Document ingestion
+
+![Document ingestion](docs/diagrams/document-ingestion.png)
+
+### Retrieval + material generation
+
+![Retrieval and material generation](docs/diagrams/retrieval-material-generation.png)
+
+### Monitoring & observability
+
+![Monitoring and observability](docs/diagrams/monitoring-observability.png)
+
+### Evaluation
+
+![Evaluation](docs/diagrams/evaluation.png)
+
+### CI/CD
+
+![CI/CD](docs/diagrams/ci-cd.png)
+
 ## Repository layout
 
 ```
