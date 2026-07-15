@@ -60,7 +60,7 @@ export function useMaterials(filters: MaterialFilters = {}) {
     },
     // Poll while anything is generating; stop on terminal states (spec §7.2).
     refetchInterval: (query) =>
-      (query.state.data ?? []).some(isGenerating) ? 3000 : false,
+      (query.state.data ?? []).some(isGenerating) ? 1000 : false,
   });
 }
 
@@ -76,7 +76,7 @@ export function useMaterial(id: number) {
     },
     refetchInterval: (query) => {
       const material = query.state.data;
-      return material && isGenerating(material) ? 3000 : false;
+      return material && isGenerating(material) ? 1000 : false;
     },
   });
 }
